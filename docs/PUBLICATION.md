@@ -1,19 +1,13 @@
-# Publication status
+# 프로젝트 안내
 
-This is a separate public-edition working copy. The internal source directory was not edited.
+Demo Kit Generator는 고객 데모를 준비하던 도구에서 스캐너, 화면 렌더러, 빌더를 분리해 만든 프로젝트입니다. 기존 내부용 원본은 수정하지 않았습니다.
 
-Included: adapted generic scanner, renderer, builder and schema; new fictional Northstar fixture, public instructions and documentation. Northstar's graphic is an inline SVG drawn for this example. No external product images or real-customer scenarios are bundled.
+예제로 넣은 Northstar는 가상의 쇼핑몰입니다. 상품 이미지나 실제 고객의 시나리오는 포함하지 않았고, 산 모양의 그림은 이 예제를 위해 SVG로 작성했습니다.
 
-Excluded: the employer use-case corpus and derived digests, private Gem instructions, customer scans/specs, customer demo videos, internal Slack announcements, account links, previous presentation decks and private build paths.
+회사 유스케이스 자료와 요약본, 내부용 Gem 지침, 고객별 스캔과 시나리오, 발표 영상, 계정 정보는 저장소에서 제외했습니다.
 
-The code was adapted from a tool developed for an internal workflow. Removing names does not establish ownership or permission to publish. Before publication the owner should establish the applicable employer/contract rights, choose the intended license, and add the corresponding license text. Until then this is a source-available candidate without an open-source license grant.
+저장소: https://github.com/YongjunJeong/demo-kit-generator
 
-There is intentionally no LICENSE file with an invented permission grant, no GitHub repository URL, and no claimed customer endorsement. The prepared edition is uploaded to a private repository. Public release and licensing remain separate decisions.
+오픈소스 라이선스는 아직 지정하지 않았습니다. 특정 회사나 고객이 후원하거나 승인한 공식 프로젝트가 아닙니다.
 
-Suggested repository name: demo-kit-generator
-
-Suggested description: Evidence-grounded scene specs and browser bookmarklets for repeatable customer demos. Includes a fictional storefront and local checks.
-
-Suggested topics: sales-engineering, solutions-consulting, bookmarklet, demo, llm, javascript
-
-Before publishing, inspect the exact file list (including generated dist files), run the documented checks, and review the optional preview image. The content check is a limited automated guard, not a complete secret scanner or legal clearance.
+사용법과 테스트 명령은 README에 있습니다. 파일 검사는 알려진 항목을 확인하는 보조 수단이며 모든 민감 정보나 보안 문제를 찾아내는 검사는 아닙니다.

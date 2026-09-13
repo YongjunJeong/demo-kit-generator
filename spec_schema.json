@@ -1,0 +1,647 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Demo Kit demo kit scene spec",
+  "description": "What the Gem produces and what KIT_BUILDER.html consumes. Everything customer-facing lives here; the shell has no customer data.",
+  "type": "object",
+  "required": [
+    "version",
+    "customer",
+    "site",
+    "meeting",
+    "scenes"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "ui_lang": {
+      "enum": [
+        "ko",
+        "en"
+      ],
+      "default": "ko",
+      "description": "Language of the presenter panel and the kit page. Scene copy follows customer.lang."
+    },
+    "customer": {
+      "type": "object",
+      "required": [
+        "name",
+        "lang",
+        "brand_color"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Shown in the panel brand label and scene headers"
+        },
+        "lang": {
+          "type": "string",
+          "description": "BCP-47 tag for scene copy, e.g. ko, ja, en"
+        },
+        "brand_color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "ink_color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "font": {
+          "type": "string",
+          "description": "CSS font-family stack. Omit to use the system stack."
+        },
+        "accent_color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "second color for gradients; defaults to brand_color"
+        },
+        "radius": {
+          "enum": [
+            "sharp",
+            "soft",
+            "round"
+          ],
+          "description": "card corner style matching the site"
+        }
+      }
+    },
+    "site": {
+      "type": "object",
+      "required": [
+        "hosts",
+        "entry_url"
+      ],
+      "properties": {
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Hostnames the bookmark may run on. Subdomains of a listed host are allowed."
+        },
+        "entry_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Where the presenter starts"
+        },
+        "render": {
+          "enum": [
+            "ssr",
+            "spa",
+            "unknown"
+          ],
+          "default": "unknown"
+        },
+        "currency": {
+          "type": "string",
+          "default": "KRW"
+        },
+        "pages": {
+          "type": "array",
+          "description": "Page ids usable in scene.page. match is a JS regex tested against pathname+search.",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "match"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "match": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string",
+                "description": "Example URL for the run-order table"
+              }
+            }
+          }
+        },
+        "allowed_urls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "From recon. When present, every cta_url and product.url must be in this list (grounding rule)."
+        },
+        "products": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/product"
+          },
+          "description": "From recon. When present, scene.products must be drawn from here."
+        },
+        "readers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "name -> selectors. The shell reads the element text at mount and exposes it as {{name}}. Names containing total/price/amount are parsed as numbers. e.g. product_name, cart_total, cart_qty"
+        }
+      }
+    },
+    "meeting": {
+      "type": "object",
+      "required": [
+        "title",
+        "opening_line",
+        "closing_line"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "subtitle": {
+          "type": "string"
+        },
+        "opening_line": {
+          "type": "string",
+          "description": "Said before the first scene: what this is (local concept, no order/lead submission, fictional visitor; images and links may load)."
+        },
+        "closing_line": {
+          "type": "string"
+        },
+        "disclaimer": {
+          "type": "string",
+          "description": "Footer inside every scene. Omit for the default."
+        },
+        "objections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "q",
+              "a"
+            ],
+            "properties": {
+              "q": {
+                "type": "string"
+              },
+              "a": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "prep_checklist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 15,
+      "items": {
+        "$ref": "#/$defs/scene"
+      }
+    },
+    "vars": {
+      "type": "object",
+      "description": "fallback values for {{name}} when no reader matches (e.g. product_name, cart_total, city)"
+    }
+  },
+  "$defs": {
+    "product": {
+      "type": "object",
+      "required": [
+        "name",
+        "price",
+        "url"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "price": {
+          "type": "number"
+        },
+        "url": {
+          "type": "string"
+        },
+        "img": {
+          "type": "string"
+        },
+        "tag": {
+          "type": "string",
+          "description": "Short reason line under the name, e.g. 'popular this week'. No performance numbers."
+        }
+      }
+    },
+    "scene": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "page",
+        "pattern",
+        "visitor",
+        "copy",
+        "talk_line",
+        "real_impl_note"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "label": {
+          "type": "string",
+          "description": "Panel button text, short. Numbering like ① helps."
+        },
+        "page": {
+          "type": "string",
+          "description": "'any' or a site.pages id. The panel dims scenes not for the current page."
+        },
+        "pattern": {
+          "enum": [
+            "banner",
+            "popup",
+            "sticky_bar",
+            "inline_edit",
+            "reco_card",
+            "social_proof",
+            "tier_progress",
+            "countdown",
+            "free_shipping_bar",
+            "coupon",
+            "exit_intent",
+            "lead_form",
+            "survey",
+            "spin_to_win",
+            "custom"
+          ]
+        },
+        "visitor": {
+          "type": "string",
+          "description": "Assumed visitor condition, e.g. 'returning, viewed emergency-relief pages'. Shown in the run-order table."
+        },
+        "copy": {
+          "type": "object",
+          "required": [
+            "title"
+          ],
+          "properties": {
+            "eyebrow": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string",
+              "description": "May contain <br>"
+            },
+            "body": {
+              "type": "string"
+            },
+            "cta": {
+              "type": "string"
+            },
+            "later": {
+              "type": "string"
+            },
+            "item_cta": {
+              "type": "string"
+            },
+            "gain_line": {
+              "type": "string"
+            },
+            "up_line": {
+              "type": "string"
+            },
+            "done_line": {
+              "type": "string"
+            },
+            "thanks": {
+              "type": "string"
+            },
+            "thanks_body": {
+              "type": "string"
+            },
+            "win_title": {
+              "type": "string"
+            },
+            "win_body": {
+              "type": "string"
+            }
+          },
+          "description": "All strings may use {{var}} placeholders (see site.readers / vars) and <br>/<b>. later:'' hides the 'maybe later' link."
+        },
+        "cta_url": {
+          "type": "string",
+          "description": "Absolute URL on the customer's site. Must exist. Must be in site.allowed_urls when that list is present."
+        },
+        "card": {
+          "type": "object",
+          "required": [
+            "title",
+            "detail"
+          ],
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "detail": {
+              "type": "string"
+            },
+            "eyebrow": {
+              "type": "string"
+            }
+          }
+        },
+        "products": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/product"
+          },
+          "description": "reco_card only"
+        },
+        "stats": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "value",
+              "label"
+            ],
+            "properties": {
+              "value": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              }
+            }
+          },
+          "description": "social_proof only. Values must be things visible on the site (stock left, viewers now) and marked fictional in note."
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "selectors"
+            ],
+            "properties": {
+              "selectors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "html": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "style": {
+                "type": "string",
+                "description": "CSS appended to the element"
+              },
+              "badge": {
+                "type": "string",
+                "description": "pill appended inside the element, brand colored"
+              },
+              "badge_style": {
+                "type": "string"
+              },
+              "highlight": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          },
+          "description": "inline_edit only. Each target: selectors tried in order, then html | text replacement, style, badge."
+        },
+        "customHtml": {
+          "type": "string",
+          "description": "custom only. Sanitized: no script, iframe, event handlers."
+        },
+        "layout": {
+          "enum": [
+            "default",
+            "wide",
+            "sheet",
+            "popup"
+          ],
+          "description": "wide: centered 1000px two-column; sheet: bottom sheet (reco_card rows); popup: modal with backdrop (countdown/coupon/lead_form/survey)"
+        },
+        "position": {
+          "enum": [
+            "br",
+            "bl",
+            "tr",
+            "tc",
+            "bottom"
+          ],
+          "description": "card corner; 'bottom' applies to sticky bars"
+        },
+        "theme": {
+          "enum": [
+            "light",
+            "dark"
+          ]
+        },
+        "icon": {
+          "type": "string",
+          "description": "Single glyph shown above the title, e.g. ♡"
+        },
+        "header": {
+          "type": "string",
+          "description": "Scene header label. Defaults to customer.name"
+        },
+        "note": {
+          "type": "string",
+          "description": "Small print inside the scene stating the fictional assumption"
+        },
+        "talk_line": {
+          "type": "string",
+          "description": "One sentence the presenter says while this scene is on screen"
+        },
+        "real_impl_note": {
+          "type": "string",
+          "description": "What the real Demo Kit setup needs: events, attributes, segments, frequency caps. For the SC's scoping follow-up."
+        },
+        "usecase_ref": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "reframe_note": {
+              "type": "string",
+              "description": "How a non-onsite use case was reframed as an onsite scene"
+            }
+          }
+        },
+        "head_style": {
+          "enum": [
+            "plain",
+            "brand"
+          ],
+          "description": "brand = gradient header in brand colors (default for social_proof, tier_progress)"
+        },
+        "push_body": {
+          "type": "boolean",
+          "description": "sticky_bar: push the page down so the bar does not cover the site header"
+        },
+        "keep_edits": {
+          "type": "boolean",
+          "description": "do not undo previous inline edits when this scene opens"
+        },
+        "addable": {
+          "type": "boolean",
+          "description": "reco_card: show + add buttons (simulated add to cart, counted into tier_progress / free_shipping_bar)"
+        },
+        "bump": {
+          "type": "object",
+          "properties": {
+            "qty_selectors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "total_selectors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "description": "reco_card addable: page elements whose number increases on add (minicart count / total)"
+        },
+        "stock_line": {
+          "type": "string",
+          "description": "social_proof: pill under the stats"
+        },
+        "tier": {
+          "type": "object",
+          "required": [
+            "now",
+            "next",
+            "rate",
+            "ytd",
+            "next_at"
+          ],
+          "properties": {
+            "now": {
+              "type": "string"
+            },
+            "next": {
+              "type": "string"
+            },
+            "rate": {
+              "type": "number"
+            },
+            "ytd": {
+              "type": "number"
+            },
+            "next_at": {
+              "type": "number"
+            },
+            "unit": {
+              "type": "string",
+              "default": "pt"
+            }
+          },
+          "description": "tier_progress. Copy may use {{tier_now}} {{tier_next}} {{tier_gain}} {{tier_ytd}} {{tier_next_at}} {{tier_rate}} {{order_total}}"
+        },
+        "order_total": {
+          "type": "number",
+          "description": "fallback order total when site.readers.cart_total finds nothing"
+        },
+        "total_var": {
+          "type": "string",
+          "default": "cart_total"
+        },
+        "threshold": {
+          "type": "number",
+          "description": "free_shipping_bar. Copy may use {{remaining}} {{threshold}} {{current_total}}"
+        },
+        "as": {
+          "enum": [
+            "card",
+            "sticky"
+          ],
+          "description": "countdown / free_shipping_bar rendering"
+        },
+        "ends_in_minutes": {
+          "type": "number",
+          "default": 30
+        },
+        "code": {
+          "type": "string",
+          "description": "coupon / spin_to_win reward code"
+        },
+        "trigger": {
+          "enum": [
+            "exit",
+            "immediate"
+          ],
+          "description": "exit_intent: exit arms on mouseleave; immediate opens at once"
+        },
+        "field_type": {
+          "type": "string",
+          "default": "email"
+        },
+        "placeholder": {
+          "type": "string"
+        },
+        "consent": {
+          "type": "string",
+          "description": "lead_form small print"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "survey answers"
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "spin_to_win wheel labels"
+        },
+        "win_index": {
+          "type": "integer",
+          "description": "spin_to_win: which segment wins (0-based)"
+        },
+        "cta_scene": {
+          "type": "string",
+          "description": "id of another scene to open when the CTA is pressed (in-scene journey, e.g. consultation -> CRM handoff). Overrides cta_url."
+        },
+        "hidden": {
+          "type": "boolean",
+          "description": "reachable only via another scene's cta_scene; no panel button"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "description": "key/value lines shown under the card (lead summary, order facts). Fictional values must be labelled as such."
+        }
+      }
+    }
+  }
+}

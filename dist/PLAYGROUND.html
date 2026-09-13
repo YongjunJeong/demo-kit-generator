@@ -1,0 +1,758 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Northstar · Fictional demo store</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#f5f3ea;color:#163d35;font:16px/1.6 system-ui}nav,main,footer{max-width:1150px;margin:auto;padding:24px}nav{display:flex;justify-content:space-between;border-bottom:1px solid #bbc6b8}a{color:inherit}main{padding-top:65px}h1{font-size:clamp(36px,6vw,76px);line-height:1.06;max-width:800px;margin:24px 0}.eyebrow{letter-spacing:3px;font-size:12px}p{max-width:590px;color:#4a665e}button{font:inherit;border:1px solid #225d50;border-radius:6px;padding:12px 22px;cursor:pointer;background:#225d50;color:white}button:focus-visible,a:focus-visible{outline:3px solid #dc820b;outline-offset:3px}.landscape{margin:40px 0;height:200px;overflow:hidden;background:#dae2ce;border-radius:10px}.cards{display:flex;gap:24px;flex-wrap:wrap}.cards article{flex:1;min-width:200px;border-top:1px solid #9ba997;padding:18px 0}footer{font-size:13px}</style>
+<nav><b>NORTHSTAR / FIELD GOODS</b><a href="KIT_BUILDER.html">Open the kit builder ↗</a></nav>
+<main><div class="eyebrow">A FICTIONAL STORE. A REAL WORKFLOW.</div><h1 id="hero-title"><span id="original-title">Good days start outside.</span></h1><p>Watch the same storefront respond to a returning visitor, an interested shopper, and an existing owner. Every profile is fictional.</p><button id="launch">Launch the 3-scene demo</button> <button id="scan">Scan this fictional page</button> <button id="original-action">Original store button</button><p id="click-count" aria-live="polite">Store button clicks: 0</p>
+<div class="landscape"><svg width="100%" height="100%" viewBox="0 0 1100 200" preserveAspectRatio="none" aria-label="Abstract mountain illustration" role="img"><circle cx="880" cy="55" r="29" fill="#dfad60"/><path d="M0 200L240 25L480 200L710 65L950 200Z" fill="#a4b99a"/><path d="M0 200L380 75L600 200L920 110L1100 200Z" fill="#537d64"/></svg></div>
+<div class="cards"><article><b>01 / Return visit</b><p>A relevant invitation above the page.</p></article><article><b>02 / On-page change</b><p>A headline that responds to intent.</p></article><article><b>03 / After purchase</b><p>Care guidance for an existing owner.</p></article></div></main>
+<footer>No real brand, product, customer or transaction data. <a href="NORTHSTAR_DEMO_KIT.html">Open the example kit</a> · <a href="../tests/index.html">Run local checks</a></footer>
+<script>let clicks=0; document.querySelector('#original-action').addEventListener('click',()=>{document.querySelector('#click-count').textContent='Store button clicks: '+(++clicks)}); document.querySelector('#original-title').addEventListener('click',()=>document.querySelector('#original-action').click()); document.querySelector('#scan').onclick=()=>{/*
+ * Demo Kit demo kit — site recon bookmarklet.
+ * Reads the current page's DOM only (no requests) and builds a site profile the
+ * Gem uses to design scenes: render mode, CSP probe, brand colors, products,
+ * navigation links, selector candidates, martech tags. Results accumulate per
+ * tab session so the presenter can run it on home -> product page -> cart and
+ * copy one merged JSON at the end.
+ */
+(() => {
+  'use strict';
+  const VER = 'scan 0.6';
+  const L = 'en' === 'en' ? 'en' : 'ko';
+  const KEY = '__demokitSiteScan';
+  const STORE = '__demokit_scan_pages';
+  window[KEY]?.destroy();
+  let TT = null;
+  try { if (window.trustedTypes?.createPolicy) TT = window.trustedTypes.createPolicy('demokit-site-scan', { createHTML: (x) => x }); } catch { TT = null; }
+  const setHTML = (el, html) => { el.innerHTML = TT ? TT.createHTML(html) : html; };
+
+  const PRICE = /(₩|\$|¥|€|£)\s?\d[\d,]*(\.\d+)?|\d[\d,]*(\.\d+)?\s?(원|円|KRW|JPY|USD|EUR)/;
+  const txt = (el) => (el?.textContent || '').replace(/\s+/g, ' ').trim();
+  const abs = (u) => { try { return new URL(u, location.href).href; } catch { return null; } };
+  const sameHost = (u) => { try { const h = new URL(u).hostname; return h === location.hostname || h.endsWith('.' + location.hostname.replace(/^www\./, '')); } catch { return false; } };
+  const parsePrice = (s) => { const m = String(s || '').replace(/,/g, '').match(/\d+(\.\d+)?/); return m ? Number(m[0]) : null; };
+  const currencyOf = (s) => /₩|원|KRW/.test(s) ? 'KRW' : /¥|円|JPY/.test(s) ? 'JPY' : /\$|USD/.test(s) ? 'USD' : /€|EUR/.test(s) ? 'EUR' : /£/.test(s) ? 'GBP' : null;
+
+  // ── selector candidates: [unique path, simple tag.class]
+  const okName = (c) => /^[A-Za-z_][\w-]*$/.test(c) && c.length < 40 && !/^(is-|js-|has-|active|selected|hover|focus|ng-|css-|sc-|jsx-|svelte-|v-)/.test(c) && !/\d{3,}/.test(c);
+  function sel(el) {
+    if (!el || el === document.body) return [];
+    const simple = (n) => { let s = n.tagName.toLowerCase(); const cls = [...n.classList].filter(okName).slice(0, 2); if (cls.length) s += '.' + cls.map((c) => CSS.escape(c)).join('.'); return s; };
+    if (el.id && okName(el.id) && document.querySelectorAll('#' + CSS.escape(el.id)).length === 1) return ['#' + el.id, simple(el)];
+    const parts = []; let cur = el;
+    for (let depth = 0; cur && cur !== document.body && depth < 4; depth++) {
+      if (cur.id && okName(cur.id)) { parts.unshift('#' + CSS.escape(cur.id)); break; }
+      parts.unshift(simple(cur));
+      if (document.querySelectorAll(parts.join(' > ')).length === 1) break;
+      cur = cur.parentElement;
+    }
+    const out = [parts.join(' > '), simple(el)];
+    return [...new Set(out)];
+  }
+  const visible = (el) => { try { const r = el.getBoundingClientRect(); return !!r && r.width > 0 && r.height > 0; } catch { return false; } };
+  const first = (list, pred) => { for (const el of list) { if (pred(el)) return el; } return null; };
+
+  // ── frameworks / render mode
+  const has = (q) => !!document.querySelector(q);
+  const rootEl = document.querySelector('#root, #app, #__next, #__nuxt, [data-reactroot]');
+  const frameworks = {
+    next: !!window.__NEXT_DATA__ || has('#__next'),
+    nuxt: !!window.__NUXT__ || has('#__nuxt'),
+    react: !!window.React || has('[data-reactroot]') || !!(rootEl && Object.keys(rootEl).some((k) => k.startsWith('__react'))),
+    vue: !!window.Vue || !!(rootEl && (rootEl.__vue__ || rootEl.__vue_app__)) || has('[data-v-app]'),
+    angular: has('[ng-version]'),
+    sfcc: !!window.dw || has('script[src*="demandware"]') || has('link[href*="demandware"]'),
+    shopify: !!window.Shopify,
+    cafe24: !!window.CAFE24 || has('script[src*="cafe24"]'),
+    wordpress: has('meta[name="generator"][content*="WordPress"]'),
+    jquery: !!window.jQuery,
+  };
+  const rootFw = !!rootEl && (Object.keys(rootEl).some((k) => k.startsWith('__react')) || !!rootEl.__vue__ || !!rootEl.__vue_app__);
+  const spa = frameworks.next || frameworks.nuxt || frameworks.angular || rootFw || has('[data-reactroot]');
+
+  // ── martech tags on the page (window globals / script hosts)
+  const tags = {
+    braze: !!(window.braze || window.appboy || has('script[src*="braze"]')),
+    bloomreach_exponea: !!(window.exponea || has('script[src*="exponea"]')),
+    moengage: !!(window.Moengage || window.moe || has('script[src*="moengage"]')),
+    clevertap: !!(window.clevertap || has('script[src*="clevertap"]')),
+    salesforce_mc: !!(window._etmc || has('script[src*="evergage"]')),
+    adobe_target: !!(window._satellite || window.adobe?.target),
+    gtm: !!window.google_tag_manager,
+    ga: !!(window.gtag || window.ga || window.dataLayer),
+    hotjar: !!window.hj, channel_io: !!window.ChannelIO, kakao_pixel: !!window.kakaoPixel, naver_wcs: !!window.wcs, amplitude: !!window.amplitude,
+  };
+
+  // ── CSP probe: can a script-inserted <style> (inside a shadow root) actually apply?
+  const csp = { meta: document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content || null, style_blocked: false, violations: [] };
+  const onViol = (e) => csp.violations.push(e.violatedDirective + ' ' + (e.blockedURI || ''));
+  document.addEventListener('securitypolicyviolation', onViol);
+  csp.adopted_ok = false; csp.trusted_types = !!window.trustedTypes && !TT;
+  try {
+    const probe = document.createElement('div'); const sr = probe.attachShadow({ mode: 'open' });
+    setHTML(sr, '<style>.p{color:rgb(1,2,3)}</style><span class="p">x</span><span class="q">y</span>');
+    document.body.appendChild(probe);
+    csp.style_blocked = getComputedStyle(sr.querySelector('.p')).color !== 'rgb(1, 2, 3)';
+    try { const sh = new CSSStyleSheet(); sh.replaceSync('.q{color:rgb(4,5,6)}'); sr.adoptedStyleSheets = [sh]; csp.adopted_ok = getComputedStyle(sr.querySelector('.q')).color === 'rgb(4, 5, 6)'; } catch { csp.adopted_ok = false; }
+    probe.remove();
+  } catch (e) { csp.style_blocked = true; csp.violations.push('probe error: ' + e.message); }
+  csp.demo_shell = csp.adopted_ok ? 'ok' : (csp.style_blocked ? 'blocked' : 'inline-only');
+
+  // ── brand colors: frequent saturated colors on buttons / links / header
+  const toHex = (rgb) => { const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/); if (!m || (m[4] !== undefined && Number(m[4]) < 0.5)) return null; const [r, g, b] = [m[1], m[2], m[3]].map(Number); if ((r === 0 && g === 0 && b === 238) || (r === 85 && g === 26 && b === 139)) return null; const mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (mx - mn < 40 || mx > 245 && mn > 225 || mx < 40) return null; return '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join(''); };
+  const colorCount = {}, darkCount = {};
+  const bump = (hex, w) => { if (hex) colorCount[hex] = (colorCount[hex] || 0) + w; };
+  const toDark = (rgb) => { const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); if (!m) return null; const [r, g, b] = [m[1], m[2], m[3]].map(Number); return Math.max(r, g, b) < 70 ? '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('') : null; };
+  [...document.querySelectorAll('button, a, [class*="btn"], [class*="button"], header, header *, nav a, [role="banner"] *')].slice(0, 2000).forEach((el) => {
+    if (!visible(el)) return; const cs = getComputedStyle(el); const r = el.getBoundingClientRect();
+    const w = Math.min(4, 1 + r.width * r.height / 20000);
+    bump(toHex(cs.backgroundColor), w * 2); bump(toHex(cs.color), w); bump(toHex(cs.borderColor), w / 2);
+    if (/BUTTON|A/.test(el.tagName) || /btn|button/i.test(el.className)) { const d = toDark(cs.backgroundColor); if (d) darkCount[d] = (darkCount[d] || 0) + w; }
+  });
+  document.querySelectorAll('header svg *, [role="banner"] svg *, #header svg *, .header svg *, [class*="logo"] svg *').forEach((el) => { try { bump(toHex(getComputedStyle(el).fill), 3); } catch { /* ignore */ } });
+  let brand_colors = Object.entries(colorCount).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([c]) => c);
+  const monochrome = brand_colors.length === 0;
+  if (monochrome) brand_colors = Object.entries(darkCount).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([c]) => c);
+  const cssVars = {};
+  const near = (a, b) => { const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)); if (!/^#[0-9a-f]{6}$/i.test(a) || !/^#[0-9a-f]{6}$/i.test(b)) return false; const [x, y] = [p(a), p(b)]; return Math.abs(x[0] - y[0]) + Math.abs(x[1] - y[1]) + Math.abs(x[2] - y[2]) < 90; };
+  try { for (const ss of document.styleSheets) { let rules; try { rules = ss.cssRules; } catch { continue; } for (const r of rules) { if (r.selectorText === ':root' || r.selectorText === 'html') { for (const p of r.style) { if (p.startsWith('--') && /primary|brand|main|accent|point/i.test(p) && /#|rgb/.test(r.style.getPropertyValue(p))) cssVars[p] = r.style.getPropertyValue(p).trim(); } } } } } catch { /* ignore */ }
+  const varColor = Object.values(cssVars).find((v) => brand_colors.some((c) => near(v.trim(), c)));
+  const brand_color_suggested = varColor ? varColor.trim() : (brand_colors[0] || null);
+  const fonts = { body: getComputedStyle(document.body).fontFamily, heading: document.querySelector('h1,h2') ? getComputedStyle(document.querySelector('h1,h2')).fontFamily : null };
+
+  // ── products: JSON-LD first, then DOM cards
+  const products = [];
+  const seen = new Set();
+  const addProduct = (p) => { const u = p.url ? (abs(p.url) || '').split('#')[0] || null : null; const k = u || p.name; if (!p.name || seen.has(k)) return; seen.add(k); products.push({ name: p.name.slice(0, 80), price: p.price ?? null, currency: p.currency || null, url: u, img: p.img ? abs(p.img) : null, source: p.source }); };
+  const ldNodes = [];
+  document.querySelectorAll('script[type="application/ld+json"]').forEach((s) => { try { const j = JSON.parse(s.textContent); (Array.isArray(j) ? j : [j]).forEach((x) => { ldNodes.push(x); if (x['@graph']) ldNodes.push(...x['@graph']); }); } catch { /* bad json-ld */ } });
+  const ldProduct = (x) => { const t = String(x['@type'] || ''); if (!/Product/.test(t)) return; const off = Array.isArray(x.offers) ? x.offers[0] : x.offers; addProduct({ name: x.name, price: off ? parsePrice(off.price ?? off.lowPrice) : null, currency: off?.priceCurrency, url: x.url || off?.url, img: Array.isArray(x.image) ? x.image[0] : (x.image?.url || x.image), source: 'json-ld' }); };
+  ldNodes.forEach((x) => { ldProduct(x); if (x.itemListElement) x.itemListElement.forEach((it) => ldProduct(it.item || it)); });
+  const ogType = document.querySelector('meta[property="og:type"]')?.content || null;
+  if (/product/i.test(ogType || '')) addProduct({ name: document.querySelector('meta[property="og:title"]')?.content, price: parsePrice(document.querySelector('meta[property="product:price:amount"]')?.content), currency: document.querySelector('meta[property="product:price:currency"]')?.content, url: location.href, img: document.querySelector('meta[property="og:image"]')?.content, source: 'og' });
+  const cardSel = [];
+  if (products.length < 8) {
+    for (const a of document.querySelectorAll('a[href]')) {
+      if (products.length >= 16) break;
+      const card = a.closest('li, article, [class*="product"], [class*="item"], [class*="card"], [class*="goods"]') || a;
+      const img = card.querySelector('img'); const t = txt(card);
+      if (!img || !PRICE.test(t) || t.length > 400 || !sameHost(a.href) || /demandware\.store|QuickView|Wishlist|AddProduct|\/cart\/add|javascript:/i.test(a.href)) continue;
+      if (/\/(feature|news|special|spl|campaign|event|story|stories|blog|about|help|faq|livestation|contents)\b/i.test(new URL(a.href).pathname)) continue;
+      const nameEl = card.querySelector('h1,h2,h3,h4,[class*="name"],[class*="title"]');
+      const name = txt(nameEl) || img.alt || '';
+      if (!name || name.length > 70 || /\b(image of|wearing|photo|banner)\b/i.test(name)) continue;
+      const pm = t.match(PRICE);
+      addProduct({ name, price: parsePrice(pm[0]), currency: currencyOf(pm[0]), url: a.href, img: img.currentSrc || img.src, source: 'dom-card' });
+      if (cardSel.length < 3) cardSel.push(sel(card)[1]);
+    }
+  }
+  // merge duplicates: same url -> keep the entry with a price and the shorter (non-title) name
+  for (let i = products.length - 1; i >= 0; i--) {
+    const a = products[i]; if (!a.url) continue;
+    const j = products.findIndex((b, k) => k < i && b.url === a.url);
+    if (j >= 0) { const b = products[j]; if (b.price == null && a.price != null) b.price = a.price, b.currency = a.currency; if (a.name.length < b.name.length && !/\|/.test(a.name)) b.name = a.name; if (!b.img) b.img = a.img; products.splice(i, 1); }
+  }
+  const currency = products.find((p) => p.currency)?.currency || (PRICE.test(txt(document.body).slice(0, 20000)) ? currencyOf(txt(document.body).match(PRICE)[0]) : null);
+
+  // ── navigation links (header/nav/footer, same host)
+  const nav = []; const navSeen = new Set();
+  let navScope = document.querySelectorAll('header a[href], nav a[href], [role="navigation"] a[href], footer a[href], #header a[href], .header a[href], #gnb a[href], .gnb a[href], #lnb a[href], [id*="nav" i] a[href], [class*="nav" i] a[href], [id*="menu" i] a[href], [class*="menu" i] a[href], #footer a[href], .footer a[href]');
+  if (navScope.length < 5) navScope = document.querySelectorAll('a[href]');
+  for (const a of navScope) { const u = abs(a.href); const t = txt(a).slice(0, 40); if (!u || !t || !sameHost(u) || /^(javascript|mailto|tel):/.test(a.getAttribute('href') || '') || navSeen.has(u) || /^(skip|back)\b/i.test(t) || /demandware\.store|QuickView|Wishlist|OAuth|logout/i.test(u)) continue; navSeen.add(u); nav.push({ text: t, url: u.split('#')[0] }); if (nav.length >= 60) break; }
+  const allLinks = [...document.querySelectorAll('a[href]')].map((a) => abs(a.href)).filter((u) => u && sameHost(u));
+
+  // ── selector candidates for scenes / readers
+  const inHeader = (e) => !!e.closest('header, [role="banner"], #header, .header, nav, footer');
+  const btnLike = [...document.querySelectorAll('button, a, input[type="submit"], [role="button"]')].filter(visible);
+  const atcRe = /^(장바구니(에)?\s?(담기)?|카트에?\s?담기|담기|add to (cart|bag|basket)|カートに(入れる|追加)|かごに(入れる|追加)|buy now|바로\s?구매|구매하기)$/i;
+  const atc = first(btnLike, (b) => { const t = txt(b).replace(/\s+/g, ' '); return t.length <= 24 && (atcRe.test(t) || /add-to-cart|addtocart|btn-cart|cart-btn|buy-now/i.test(b.className + ' ' + (b.id || '') + ' ' + (b.getAttribute('data-action') || ''))); });
+  const priceCands = [...document.querySelectorAll('[class*="price" i], [itemprop="price"], [data-price]')].filter((e) => visible(e) && PRICE.test(txt(e)) && txt(e).length < 40);
+  const ldPrice = products.find((x) => x.source === 'json-ld' && x.price != null)?.price;
+  const priceEl = (ldPrice != null && priceCands.find((e) => parsePrice(txt(e).match(PRICE)[0]) === ldPrice))   // the element showing the product's own price
+    || priceCands.sort((a, b) => parseFloat(getComputedStyle(b).fontSize) - parseFloat(getComputedStyle(a).fontSize) || txt(a).length - txt(b).length)[0] || null;
+  const h1 = first([...document.querySelectorAll('h1')].filter(visible), (e) => !inHeader(e) && txt(e).length > 1 && txt(e).length < 120 && !/[{}]/.test(txt(e)));
+  const cartCount = first([...document.querySelectorAll('[class*="cart" i] [class*="count" i], [class*="cart" i] [class*="qty" i], [class*="cart" i] [class*="badge" i], [class*="minicart" i] span, [class*="cart-num" i], [class*="cartCount"]')].filter(visible), (e) => /^\d{1,3}$/.test(txt(e)));
+  const cartTotal = first([...document.querySelectorAll('[class*="total" i], [class*="subtotal" i], [class*="grand" i]')].filter(visible), (e) => PRICE.test(txt(e)) && txt(e).length < 60);
+  const search = document.querySelector('input[type="search"], input[name*="search" i], input[placeholder*="검색"], input[placeholder*="search" i]');
+  const header = document.querySelector('header, [role="banner"], #header, .header');
+  let hero = null, heroSize = 0;
+  for (const e of [...document.querySelectorAll('h1, h2, h3, p, strong, span, div')].slice(0, 4000)) {
+    if (e.children.length > 2 || inHeader(e)) continue;
+    const t = txt(e); if (t.length < 4 || t.length > 120 || /[{}]/.test(t) || PRICE.test(t)) continue;
+    const r = e.getBoundingClientRect(); if (r.top > 900 || r.width === 0 || r.height === 0) continue;
+    const fs = parseFloat(getComputedStyle(e).fontSize); if (fs >= 26 && fs > heroSize) { hero = e; heroSize = fs; }
+  }
+  const volatile = (arr) => arr.some((x) => /[_-][A-Za-z0-9]{5,}$|__[A-Za-z0-9]{4,}|[a-f0-9]{6,}/.test(x));
+  const selectors = {
+    product_name: sel(h1), price: sel(priceEl), add_to_cart: sel(atc), cart_count: sel(cartCount), cart_total: sel(cartTotal),
+    search: sel(search), header: sel(header), hero_heading: sel(hero), product_card: cardSel,
+  };
+  const volatile_selectors = Object.entries(selectors).filter(([, v]) => v.length && volatile(v)).map(([k]) => k);
+  const samples = { product_name: txt(h1).slice(0, 60) || null, price: txt(priceEl).slice(0, 40) || null, add_to_cart: txt(atc).slice(0, 40) || null, cart_count: txt(cartCount) || null, cart_total: txt(cartTotal).slice(0, 40) || null, hero_heading: txt(hero).slice(0, 80) || null };
+
+  products.forEach((x) => { if (x.source === 'json-ld' && atc) { if (!x.url) x.url = location.href.split('#')[0]; if (x.price == null && priceEl) { x.price = parsePrice(txt(priceEl)); x.currency = x.currency || currencyOf(txt(priceEl)); } } });
+  if (h1 && priceEl && atc && !products.some((x) => x.source === 'json-ld' || x.source === 'og')) {
+    const big = first([...document.querySelectorAll('main img, [class*="product"] img, [class*="gallery"] img, img')].filter(visible), (im) => im.getBoundingClientRect().width >= 200);
+    addProduct({ name: txt(h1), price: parsePrice(txt(priceEl)), currency: currencyOf(txt(priceEl)), url: location.href, img: document.querySelector('meta[property="og:image"]')?.content || big?.currentSrc || big?.src, source: 'pdp-dom' });
+  }
+
+  // ── page type
+  const path = location.pathname;
+  const page_type = /cart|basket|bag\b|장바구니|checkout/i.test(path) ? 'cart'
+    : (ldNodes.some((x) => /Product/.test(String(x['@type'] || '')) ) || (atc && h1)) ? 'pdp'
+    : (path === '/' || /^(\/[a-z]{2}(-[a-z]{2})?){0,2}\/?(index|main|home)?(\.\w+)?\/?$/i.test(path)) ? 'home'
+    : (products.filter((p) => p.source === 'dom-card').length >= 6 || document.querySelectorAll('[class*="product-tile" i], [class*="product-card" i], [class*="productTile" i], [class*="productCard" i], li[class*="product" i]').length >= 6) ? 'plp' : 'other';
+
+  const meta = (n) => document.querySelector(`meta[property="${n}"], meta[name="${n}"]`)?.content?.trim() || '';
+  const brandToken = location.hostname.replace(/^www\./, '').split('.')[0].toLowerCase();
+  const segs = document.title.split(/[|｜\-–—:·]/).map((x) => x.trim()).filter(Boolean);
+  const site_name = meta('og:site_name') || meta('application-name') || segs.find((x) => x.toLowerCase().includes(brandToken)) || segs.filter((x) => x.length <= 25).sort((a, b) => a.length - b.length)[0] || location.hostname.replace(/^www\./, '');
+  const corpus = [document.title, meta('description'), meta('keywords'), ...nav.map((n) => n.text), ...[...document.querySelectorAll('h1,h2,h3,button,[role="menuitem"]')].slice(0, 300).map(txt), txt(document.body).slice(0, 4000)].join(' ').toLowerCase();
+  const INDUSTRY = [
+    ['Fashion & Apparel', /의류|패션|레깅스|아우터|드레스|스커트|셔츠|후디|신발|스니커즈|fashion|apparel|clothing|shoes|sneaker|dress|jacket|ファッション|シューズ|スニーカー|원피스|니트|가디건|팬츠|골프웨어|브랜드/g],
+    ['Beauty & Cosmetics', /뷰티|화장품|스킨케어|메이크업|립|세럼|beauty|cosmetic|skincare|makeup|コスメ/g],
+    ['Electronics', /가전|노트북|스마트폰|tv|냉장고|세탁기|electronics|laptop|smartphone|家電/g],
+    ['Grocery & Food Delivery', /식품|신선|마트|장보기|배달|grocery|delivery|food|restaurant|フード/g],
+    ['Marketplace / General Retail', /베스트|카테고리|입점|셀러|marketplace|best seller|category|deal/g],
+    ['Travel & Hospitality', /항공|호텔|여행|예약|투어|flight|hotel|travel|booking|airline|旅行|ホテル/g],
+    ['Banking & Insurance', /대출|예금|적금|보험|송금|신용카드|계좌개설|loan|insurance|banking|mortgage|credit card|savings|投資|保険|銀行|ローン/g],
+    ['Telecom', /요금제|유심|esim|데이터|로밍|인터넷|iptv|mobile plan|telecom|roaming/g],
+    ['Automotive & Mobility', /자동차|차량|시승|딜러|모델|전기차|바이크|automotive|dealer|test drive|vehicle|バイク|クルマ/g],
+    ['Media & Subscriptions', /기사|뉴스|구독|영상|시리즈|에피소드|article|news|subscribe|episode|streaming/g],
+    ['Education', /강의|수업|코스|학습|수강|course|lesson|learn|class|tutor/g],
+    ['Healthcare', /병원|진료|건강검진|의료|clinic|doctor|patient|health|hospital/g],
+    ['Nonprofit & Donations', /후원|기부|캠페인|나눔|donate|donation|charity|ngo|volunteer/g],
+    ['Gaming, Entertainment & Ticketing', /게임|티켓|공연|콘서트|경기|game|ticket|concert|match|betting/g],
+  ];
+  const scored = INDUSTRY.map(([name, re]) => [name, (corpus.match(re) || []).length]).filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]);
+  const industry_guess = scored.length ? scored[0][0] : null;
+  const industry_candidates = scored.slice(0, 3).map(([n, c]) => `${n} (${c})`);
+  const pageProfile = {
+    url: location.href.split('#')[0], path, page_type, title: document.title.slice(0, 120), captured_at: new Date().toISOString(),
+    login_gate: /login|signin|member\/login|로그인/i.test(path) || (/cart/i.test(path) && !!document.querySelector('form[action*="login" i]')),
+    products, nav, link_count: new Set(allLinks).size, selectors, volatile_selectors, samples, csp,
+    site_name, industry_guess, industry_candidates, brand_colors, brand_color_suggested, tags: Object.keys(tags).filter((k) => tags[k]), lang: document.documentElement.lang || null,
+    iframes: [...document.querySelectorAll('iframe')].filter(visible).map((f) => (f.src || '').slice(0, 120)).slice(0, 5), body_nodes: document.body.querySelectorAll('*').length,
+  };
+  const siteProfile = {
+    scan: VER, site_name, industry_guess, industry_candidates, host: location.hostname, hosts: [location.hostname.replace(/^www\./, '')], entry_url: location.origin + '/',
+    lang: document.documentElement.lang || null, currency, render: spa ? 'spa' : 'ssr', monochrome, frameworks: Object.keys(frameworks).filter((k) => frameworks[k]),
+    tags: Object.keys(tags).filter((k) => tags[k]), brand_colors, brand_color_suggested, css_vars: cssVars, fonts,
+    viewport: { w: innerWidth, h: innerHeight }, ua: navigator.userAgent,
+  };
+
+  // ── accumulate per tab session
+  let pages = [];
+  try { pages = JSON.parse(sessionStorage.getItem(STORE) || '[]'); } catch { pages = []; }
+  pages = pages.filter((p) => p.url !== pageProfile.url); pages.push(pageProfile);
+  let storageOk = true;
+  try { sessionStorage.setItem(STORE, JSON.stringify(pages)); } catch { storageOk = false; }
+  const best = () => { const home = pages.find((p) => p.page_type === 'home'); const order = home ? [home, ...pages.filter((p) => p !== home)] : pages.slice(); const pick = (k) => { for (const p of order) { const v = p[k]; if (v && (!Array.isArray(v) || v.length)) return v; } return siteProfile[k]; }; return { site_name: pick('site_name'), industry_guess: pick('industry_guess'), industry_candidates: pick('industry_candidates'), brand_colors: pick('brand_colors'), brand_color_suggested: pick('brand_color_suggested'), lang: pick('lang'), tags: [...new Set(pages.flatMap((p) => p.tags || []))] }; };
+  const merged = () => ({ ...siteProfile, ...best(), pages, allowed_urls: [...new Set(pages.flatMap((p) => [p.url, ...p.nav.map((n) => n.url), ...p.products.map((x) => x.url).filter(Boolean)]))].filter((u) => !/demandware\.store|QuickView|Wishlist|OAuth/i.test(u)).slice(0, 300) });
+  document.removeEventListener('securitypolicyviolation', onViol);
+
+  // ── panel
+  const host = document.createElement('div'); host.id = 'demokit-site-scan';
+  host.style.cssText = 'all:initial!important;position:fixed!important;right:16px!important;bottom:16px!important;z-index:2147483647!important';
+  const root = host.attachShadow({ mode: 'open' });
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const sw = (c) => `<i class="sw" data-style="background:${c}"></i>`;
+  const PANEL_CSS = `
+  .p{font:13px/1.5 -apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#1a1f27;background:#fff;border:1px solid #ddd;border-radius:14px;box-shadow:0 14px 50px #0004;width:360px;max-width:calc(100vw - 32px);overflow:hidden}
+  .h{background:#1a1f27;color:#fff;padding:10px 14px;font-size:12px;letter-spacing:1px;display:flex;justify-content:space-between;align-items:center}.h button{background:none;border:0;color:#aaa;font-size:18px;cursor:pointer}
+  .b{padding:12px 14px}table{width:100%;border-collapse:collapse;font-size:12px}td{padding:3px 0;vertical-align:top}td:first-child{color:#777;width:92px}
+  .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}button.a{background:#d0021b;color:#fff;border:0;border-radius:8px;padding:9px 12px;font:700 13px/1 inherit;cursor:pointer}button.g{background:#eef0f3;color:#222;border:0;border-radius:8px;padding:9px 12px;font:13px/1 inherit;cursor:pointer}
+  textarea{width:100%;height:90px;font:11px/1.3 ui-monospace,monospace;margin-top:8px;border:1px solid #ccc;border-radius:6px}[hidden]{display:none!important}.s{font-size:11px;color:#666;margin-top:6px}.warn{color:#b3261e}
+  .sw{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:middle;margin-right:3px;border:1px solid #0002}`;
+  const B = best();
+  const PANEL = `<div class="p"><div class="h"><span>DEMO KIT · ${L === 'en' ? 'SITE SCAN' : '사이트 스캔'} ${VER}</span><button data-a="x" aria-label="close">×</button></div><div class="b">
+  <table>
+  <tr><td>site</td><td>${esc(B.site_name)}${B.industry_guess ? ' · ' + esc(B.industry_guess) : ''}</td></tr>
+  <tr><td>page</td><td><b>${esc(page_type)}</b> · ${esc(siteProfile.render)} ${siteProfile.frameworks.length ? '(' + esc(siteProfile.frameworks.join(', ')) + ')' : ''}</td></tr>
+  <tr><td>products</td><td>${products.length} ${products[0] ? '· ' + esc(products[0].name.slice(0, 30)) : ''}</td></tr>
+  <tr><td>nav links</td><td>${nav.length}</td></tr>
+  <tr><td>selectors</td><td>${['product_name', 'price', 'add_to_cart', 'cart_count', 'cart_total'].filter((k) => selectors[k].length).join(', ') || '—'}</td></tr>
+  <tr><td>colors</td><td>${(B.brand_colors || []).map(sw).join('')} ${esc((B.brand_colors || []).join(' '))}${B.brand_color_suggested ? (L === 'en' ? ' · suggested ' : ' · 제안 ') + esc(B.brand_color_suggested) : ''}</td></tr>
+  <tr><td>tags</td><td>${esc((B.tags || []).join(', ')) || '—'}</td></tr>
+  <tr><td>csp</td><td class="${csp.demo_shell === 'blocked' ? 'warn' : ''}">${csp.demo_shell === 'ok' ? 'ok' : csp.demo_shell === 'inline-only' ? 'ok (inline only)' : (L === 'en' ? '⚠ styles blocked — use the local rehearsal for the demo' : '⚠ 스타일 차단 — 데모는 로컬 리허설로')}${csp.trusted_types ? ' · ⚠ Trusted Types' : ''}${csp.meta ? ' · meta' : ''}</td></tr>
+  ${pageProfile.iframes.length && pageProfile.body_nodes < 400 ? '<tr><td class="warn">iframe</td><td class="warn">' + (L === 'en' ? '⚠ content seems to live in an iframe — open the frame URL directly and run there' : '⚠ 콘텐츠가 iframe 안에 있는 듯 — 프레임 URL을 직접 열어 실행하세요') + '</td></tr>' : ''}
+  ${(page_type === 'pdp' || page_type === 'plp') && !products.length ? '<tr><td class="warn">products</td><td class="warn">' + (L === 'en' ? '⚠ 0 products — scroll to the bottom, then click again' : '⚠ 상품이 0건 — 페이지 끝까지 스크롤한 뒤 다시 클릭') + '</td></tr>' : ''}
+  ${volatile_selectors.length ? `<tr><td>note</td><td>${L === 'en' ? `hashed-class selectors (${volatile_selectors.join(', ')}) — may change after a deploy, re-check on the meeting day` : `해시 클래스 셀렉터(${volatile_selectors.join(', ')}) — 배포 후 바뀔 수 있음, 미팅 당일 재확인`}</td></tr>` : ''}
+  ${storageOk ? '' : '<tr><td class="warn">session</td><td class="warn">' + (L === 'en' ? '⚠ session storage unavailable — copy "this page only" on each page and paste all of them' : '⚠ 세션 저장 불가 — 페이지마다 "이 페이지만" 복사해 모두 붙여넣으세요') + '</td></tr>'}
+  ${allLinks.length < 20 ? '<tr><td class="warn">links</td><td class="warn">' + (L === 'en' ? '⚠ few links (SPA?) — run on product and cart pages too so URLs accumulate' : '⚠ 링크가 적은 페이지(SPA?) — 상품·장바구니 페이지에서도 실행해 URL을 누적하세요') + '</td></tr>' : ''}
+  ${monochrome ? '<tr><td>note</td><td>' + (L === 'en' ? 'no saturated brand color — suggesting the dark button color' : '채도 있는 브랜드색 없음 — 버튼의 어두운 색을 brand로 제안') + '</td></tr>' : ''}
+  <tr><td>collected</td><td>${pages.length} page(s): ${esc(pages.map((p) => p.page_type).join(' → '))}</td></tr>
+  </table>
+  <div class="row"><button class="a" data-a="copy">${L === 'en' ? 'Copy JSON' : 'JSON 복사'} (${pages.length}p)</button><button class="g" data-a="one">${L === 'en' ? 'This page only' : '이 페이지만'}</button><button class="g" data-a="clear">${L === 'en' ? 'Reset session' : '세션 초기화'}</button></div>
+  <div class="s">${L === 'en' ? 'Click the bookmark again on Home → Product page → Cart, then copy at the end. Paste the JSON into step 1 of the Kit Builder.' : '홈 → 상품 상세 → 장바구니 순으로 각 페이지에서 북마크를 다시 클릭한 뒤 마지막에 복사하세요. 복사한 JSON을 킷 빌더 1단계에 붙여넣습니다.'}</div>
+  <textarea hidden readonly></textarea></div></div>`;
+  try { const sh = new CSSStyleSheet(); sh.replaceSync(PANEL_CSS); root.adoptedStyleSheets = [sh]; setHTML(root, PANEL); }
+  catch { setHTML(root, `<style>${PANEL_CSS}</style>` + PANEL); }
+  root.querySelectorAll('[data-style]').forEach((el) => { el.style.cssText += ';' + el.dataset.style; });
+  const ta = root.querySelector('textarea'); const status = root.querySelector('.s');
+  async function copy(obj) {
+    const j = JSON.stringify(obj, null, 1);
+    ta.value = j;
+    try { await navigator.clipboard.writeText(j); status.textContent = L === 'en' ? `Copied (${(j.length / 1024).toFixed(0)} KB). Paste into step 1 of the Kit Builder.` : `복사했습니다 (${(j.length / 1024).toFixed(0)} KB). Gem에 붙여넣으세요.`; return; } catch { /* insecure context or denied */ }
+    ta.hidden = false; ta.focus(); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch { ok = false; }
+    status.textContent = ok ? (L === 'en' ? `Copied (${(j.length / 1024).toFixed(0)} KB).` : `복사했습니다 (${(j.length / 1024).toFixed(0)} KB). Gem에 붙여넣으세요.`) : (L === 'en' ? 'Select the JSON and press ⌘C / Ctrl+C.' : '선택된 JSON을 ⌘C / Ctrl+C로 복사하세요.');
+  }
+  function destroy() { host.remove(); delete window[KEY]; }
+  root.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.a === 'copy') copy(merged());
+    else if (b.dataset.a === 'one') copy({ ...siteProfile, pages: [pageProfile] });
+    else if (b.dataset.a === 'clear') { try { sessionStorage.removeItem(STORE); } catch { /* ignore */ } pages = [pageProfile]; status.textContent = L === 'en' ? 'Session cleared. Only this page remains.' : '세션을 비웠습니다. 현재 페이지만 남습니다.'; }
+    else destroy();
+  });
+  document.body.appendChild(host);
+  window[KEY] = { destroy, page: pageProfile, site: siteProfile, merged };
+})();
+}; document.querySelector('#launch').onclick=()=>{
+(() => {
+  'use strict';
+  const SPEC = {"version": 1, "ui_lang": "en", "customer": {"name": "Northstar", "lang": "en", "brand_color": "#225D50"}, "site": {"hosts": ["127.0.0.1"], "entry_url": "http://127.0.0.1:8080/dist/PLAYGROUND.html", "currency": "USD", "pages": [{"id": "home", "match": ".*", "url": "http://127.0.0.1:8080/dist/PLAYGROUND.html"}], "allowed_urls": ["http://127.0.0.1:8080/dist/PLAYGROUND.html"], "readers": {}}, "vars": {}, "meeting": {"title": "A different next step for each visitor", "subtitle": "Fictional outdoor store · local concept demo", "opening_line": "This is a local simulation with fictional visitor conditions. No orders or leads are submitted. Images and links in other kits may make requests.", "closing_line": "The experience is a prototype. Production needs identity, consent, events and campaign delivery.", "prep_checklist": ["Run the local checks.", "Use fictional profiles only."], "disclaimer": "FICTIONAL STORE · NO ORDER OR LEAD SUBMISSION"}, "scenes": [{"id": "welcome", "label": "1 · Return visit", "page": "any", "pattern": "banner", "visitor": "Returning visitor interested in day hikes (fictional)", "copy": {"title": "Your next day outside starts here.", "body": "Pick up your trail planning where you left off.", "cta": "See the next step"}, "cta_scene": "inline", "talk_line": "A returning visitor gets a relevant next step.", "real_impl_note": "Requires consent-aware browsing events and a defined audience."}, {"id": "inline", "label": "2 · On-page change", "page": "any", "pattern": "inline_edit", "visitor": "Visitor exploring the trail collection (fictional)", "targets": [{"selectors": ["#hero-title"], "text": "Make room for your next trail."}], "copy": {"title": "Personalization on the page"}, "talk_line": "The page headline changes while the store remains visible. Reset restores the original nodes.", "real_impl_note": "Requires an eligible placement and controlled content experiments."}, {"id": "owner", "label": "3 · After purchase", "page": "any", "pattern": "popup", "visitor": "Existing owner (fictional)", "copy": {"title": "More miles. Less guesswork.", "body": "Find care guidance for the gear you already own.", "later": "Keep exploring"}, "talk_line": "Owners see support rather than the same acquisition message.", "real_impl_note": "Requires purchase events and suppression of acquisition campaigns."}]};
+  const VER = 'shell 0.4';
+  const KEY = '__demokitDemoKit';
+
+  const site = SPEC.site || {};
+  const cust = SPEC.customer || {};
+  const hosts = site.hosts || [];
+  const here = location.hostname;
+  const local = location.protocol === 'file:' || here === 'localhost' || here === '127.0.0.1';
+  const onSite = hosts.some((h) => here === h || here.endsWith('.' + h));
+  if (!local && !onSite) {
+    alert((SPEC.ui_lang === 'en' ? 'Run this bookmark on: ' : '이 북마크는 여기서 실행하세요: ') + (site.entry_url || hosts[0] || ''));
+    return;
+  }
+  if (!document.body) return;
+  window[KEY]?.destroy();
+
+  // Trusted Types (sites with require-trusted-types-for 'script'): route every innerHTML through a policy
+  let TT = null;
+  try { if (window.trustedTypes?.createPolicy) TT = window.trustedTypes.createPolicy('demokit-demo-kit', { createHTML: (x) => x }); } catch { TT = null; }
+  const setHTML = (el, html) => { el.innerHTML = TT ? TT.createHTML(html) : html; };
+  // CSP style-src may block inline style attributes even inside a shadow root; data-style is applied through CSSOM instead
+  const applyStyles = (scope) => scope.querySelectorAll('[data-style]').forEach((el) => { el.style.cssText += ';' + el.dataset.style; });
+
+  const T = SPEC.ui_lang === 'en' ? {
+    demo: 'DEMO', reset: 'Reset', exit: 'Exit ×', diag: 'Copy diagnostics', later: 'Maybe later', add: '+ Add', added: 'Added ✓', copy: 'Copy', copied: 'Copied ✓',
+    submit: 'Submit', thanks: 'Thank you!', spin: 'Spin', view: 'View', armed: 'Armed — move the mouse out of the top of the window',
+    wrongPage: (p) => `This scene is for the "${p}" page. Navigate there and click the bookmark again.`,
+    ok: 'OK', fail: 'FAIL', noTarget: 'target element not found', reset_done: 'Reset — page restored',
+    foot: 'CONCEPT DEMO · fictional visitor conditions · no form submission; images and links may load',
+  } : {
+    demo: 'DEMO', reset: '초기화', exit: '종료 ×', diag: '진단 복사', later: '지금은 둘러볼게요', add: '+ 담기', added: '담김 ✓', copy: '복사', copied: '복사됨 ✓',
+    submit: '보내기', thanks: '감사합니다!', spin: '돌리기', view: '보기', armed: '대기 중 — 마우스를 창 위쪽 밖으로 이동하면 표시됩니다',
+    wrongPage: (p) => `이 장면은 "${p}" 페이지용입니다. 그 페이지로 이동한 뒤 북마크를 다시 클릭하세요.`,
+    ok: 'OK', fail: 'FAIL', noTarget: '대상 요소를 찾지 못함', reset_done: '초기화 — 페이지 원상 복구',
+    foot: 'CONCEPT DEMO · no form submission; images and links may load',
+  };
+
+  // ── page detection (site.pages: [{id, match}] regex on path+search)
+  function detectPage() {
+    if (document.body.dataset.demoPage) return document.body.dataset.demoPage;
+    const target = location.pathname + location.search;
+    for (const p of site.pages || []) {
+      try { if (new RegExp(p.match).test(target)) return p.id; } catch { /* bad regex in spec */ }
+    }
+    return 'other';
+  }
+  let page = detectPage();
+
+  // ── helpers
+  const SAFE_TAGS = new Set('BR B STRONG EM I SPAN P DIV SMALL H1 H2 H3 UL OL LI SECTION TABLE THEAD TBODY TR TD TH'.split(' '));
+  function clean(html) {
+    if (html == null) return '';
+    const tpl = document.createElement('template');
+    setHTML(tpl, String(html));
+    tpl.content.querySelectorAll('*').forEach(el => {
+      if (!SAFE_TAGS.has(el.tagName)) { el.remove(); return; }
+      for (const a of [...el.attributes]) el.removeAttribute(a.name);
+    });
+    return tpl.innerHTML;
+  }
+  const text = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const cur = site.currency || 'KRW';
+  const money = (n) => {
+    if (typeof n !== 'number') return text(n);
+    try { return new Intl.NumberFormat(cust.lang || 'ko', { style: 'currency', currency: cur, maximumFractionDigits: cur === 'KRW' || cur === 'JPY' ? 0 : 2 }).format(n); }
+    catch { return n.toLocaleString(); }
+  };
+  const fmt = (n) => Number(n).toLocaleString(cust.lang || 'ko');
+  function pick(selectors) {
+    for (const sel of selectors || []) { try { const el = document.querySelector(sel); if (el) return el; } catch { /* bad selector */ } }
+    return null;
+  }
+
+  // ── context variables: read from the page (site.readers) with spec.vars fallbacks; used as {{name}} in copy
+  const vars = Object.assign({}, SPEC.vars || {});
+  for (const [k, sels] of Object.entries(site.readers || {})) {
+    const el = pick(sels);
+    if (!el) continue;
+    const raw = el.textContent.trim().split('\n')[0].trim().slice(0, 60);
+    if (/total|price|amount/.test(k)) { const m = raw.replace(/,/g, '').match(/\d+(\.\d+)?/); if (m) vars[k] = Number(m[0]); }
+    else vars[k] = raw;
+  }
+  const fill = (s) => String(s ?? '').replace(/\{\{(\w+)\}\}/g, (m, k) => vars[k] === undefined ? m : (typeof vars[k] === 'number' && /total|price|amount/.test(k) ? money(vars[k]) : vars[k]));
+  const num = (k, fallback) => typeof vars[k] === 'number' ? vars[k] : (Number(fallback) || 0);
+  const h = (s) => clean(fill(s));
+
+  // ── theme
+  const brand = cust.brand_color || '#111111';
+  const ink = cust.ink_color || '#1d2430';
+  const accent = cust.accent_color || brand;
+  const radius = { sharp: '4px', soft: '12px', round: '20px' }[cust.radius] || '16px';
+  const font = cust.font || "-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic','Hiragino Sans','Noto Sans JP',sans-serif";
+  const previous = document.activeElement;
+  const host = document.createElement('div');
+  host.id = 'demokit-demo-kit';
+  host.style.cssText = 'all:initial!important;position:fixed!important;inset:0!important;z-index:2147483647!important;pointer-events:none!important';
+  const root = host.attachShadow({ mode: 'open' });
+  const CSS = `
+  :host{all:initial;color-scheme:light}*{box-sizing:border-box}[hidden]{display:none!important}
+  .bar,.scene,.toast,.stick{pointer-events:auto;font:15px/1.6 ${font};color:${ink}}
+  button,a,input{font:inherit}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #3478f6;outline-offset:3px}
+  .bar{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;width:max-content;max-width:calc(100vw - 24px);padding:11px 14px;background:#1a1f27;color:#fff;border-radius:14px;box-shadow:0 10px 35px #0005}
+  .brand{font-size:11px;letter-spacing:1px;margin-right:6px;opacity:.85}
+  .bar button{background:#2c3340;color:#fff;border:1px solid #4a5364;border-radius:8px;padding:8px 12px;font-size:13px}
+  .bar button[aria-pressed=true]{background:${brand};border-color:${brand}}.bar button.off{opacity:.45}.bar button.util{background:transparent;border-color:#3a4252;color:#cfd5df}
+  .backdrop{position:fixed;inset:0;background:#10131a75;pointer-events:auto}
+  .scene{position:fixed;right:24px;bottom:105px;width:400px;max-width:calc(100vw - 32px);max-height:calc(100dvh - 130px);overflow:auto;background:#fff;border:1px solid #e9e9e9;border-radius:${radius};box-shadow:0 18px 60px #0004;transform:translateY(20px);opacity:0;transition:transform .4s cubic-bezier(.2,.8,.2,1),opacity .4s}
+  .scene.in{transform:none;opacity:1}
+  .scene.pos-bl{right:auto;left:24px}.scene.pos-tr{bottom:auto;top:76px;right:20px;transform:translateY(-20px)}.scene.pos-tr.in{transform:none}
+  .scene.pos-tc{bottom:auto;top:76px;right:auto;left:50%;transform:translate(-50%,-20px)}.scene.pos-tc.in{transform:translate(-50%,0)}
+  .scene.wide{left:50%;right:auto;transform:translate(-50%,20px);width:1000px;border-top:5px solid ${brand}}.scene.wide.in{transform:translate(-50%,0)}
+  .wide .body{display:grid;grid-template-columns:1.5fr 1fr;gap:30px;padding:30px 36px}.wide .head{border:0;padding-bottom:0}
+  .scene.sheet{left:16px;right:16px;bottom:100px;width:auto;max-width:none}.sheet .row{display:flex;gap:10px}.sheet .row .item{flex:1;margin:0}
+  .scene.popup{left:50%;top:45%;right:auto;bottom:auto;transform:translate(-50%,-46%);width:520px;text-align:center;border:0}.scene.popup.in{transform:translate(-50%,-50%)}
+  .popup .body{padding:22px 38px}.popup .head{border:0}.popup .cta{border-radius:30px}
+  .scene.dark{background:#1f2a2a;color:#fff;border:0}.dark .head{border-color:#ffffff22}.dark .head b,.dark .close,.dark .tag{color:#efce99}.dark p,.dark .later,.dark .note,.dark .sub{color:#dbe5e1}
+  .dark .card{background:transparent;border:0;border-top:1px solid #ffffff33;padding:16px 0;margin:20px 0 8px}.dark .card b{color:#efce99}.dark .card span{color:#cfdcd7}.dark .cta{background:#f3d3a1;color:#1f2a2a}.dark .foot{background:#172020;color:#c6d8d2}
+  .head{padding:13px 22px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;letter-spacing:1px}.head b{color:${brand}}
+  .head.hd-brand{background:linear-gradient(90deg,${brand},${accent});color:#fff;border:0;font-size:13px;letter-spacing:.3px}.hd-brand b,.hd-brand .close{color:#fff}.head .ico{font-size:16px}
+  .close{border:0;background:none;font-size:24px;color:#666;line-height:1;margin-left:auto}
+  .body{padding:22px 24px}.tag{color:${brand};font-size:11px;font-weight:800;letter-spacing:1.4px}
+  h1{font-size:24px;line-height:1.35;letter-spacing:-.8px;margin:10px 0 8px}h1:focus{outline:none}.wide h1,.popup h1{font-size:30px}
+  p{font-size:14px;color:#5f6670;margin:6px 0 14px}.sub{font-size:12px;color:#777;margin:4px 0 10px}
+  .card{background:#f6f4f1;border-radius:12px;padding:18px;margin:16px 0;border-left:4px solid ${brand}}.card b{display:block;font-size:19px;letter-spacing:-.5px}.card span{display:block;font-size:13px;color:#6f6a64;margin-top:5px}.card small{display:block;font-size:11px;color:#8a8580;letter-spacing:1px}
+  .rows{margin:14px 0;border-top:1px solid #e5e8eb;text-align:left}.row{display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid #e5e8eb;padding:9px 0;font-size:13px}.row span{color:#727986}.row b{text-align:right}
+  .flow{display:grid;gap:8px;margin:16px 0;text-align:left}.node{border:1px solid #dfe4e9;border-radius:10px;padding:10px 14px}.node small{color:${brand};font-size:10px;letter-spacing:1px;display:block}.node b{display:block}.arrow{text-align:center;color:#8a8f98;font-size:12px}.ok-line{background:${brand}12;border:1px solid ${brand}44;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px}
+  .cta{display:block;background:${brand};color:#fff;text-align:center;text-decoration:none;border-radius:10px;padding:13px;font-weight:700;border:0;width:100%;cursor:pointer}
+  .later{display:block;width:100%;border:0;background:none;color:#666;padding:10px;font-size:13px}
+  .foot{background:#f5f5f5;padding:10px 22px;font-size:10px;color:#757575}.note{font-size:10px;color:#8a8a8a;margin-top:12px}
+  .symbol{width:56px;height:56px;border-radius:50%;background:${brand}18;color:${brand};display:grid;place-items:center;font-size:30px;margin:0 auto 14px}
+  .items{margin:12px 0}.item{display:flex;gap:12px;align-items:center;padding:10px;border:1px solid #eee;border-radius:12px;margin-bottom:8px;text-align:left}
+  .item img{width:64px;height:64px;object-fit:cover;border-radius:8px;background:#f2f2f2;flex:none}.item .n{font-size:13px;font-weight:600;line-height:1.3}.item .t{font-size:11px;color:${brand};margin-top:2px}.item .p{font-size:13px;margin-top:2px}
+  .item a,.item button.add{margin-left:auto;background:${ink};color:#fff;text-decoration:none;border:0;border-radius:99px;padding:8px 12px;font-size:12px;white-space:nowrap;cursor:pointer}.item button.add.ok{background:#1f9d55}
+  .stats{display:flex;gap:10px;margin:12px 0}.stat{flex:1;background:${brand}10;border:1px solid ${brand}33;border-radius:10px;padding:10px 12px}.stat em{font-style:normal;font-size:26px;font-weight:800;color:${brand};line-height:1;display:block}.stat span{font-size:11px;color:#666}
+  .pill{display:inline-block;background:${brand};color:#fff;font-size:11.5px;font-weight:700;border-radius:99px;padding:4px 12px;margin:4px 0}
+  .stick{position:fixed;top:0;left:0;right:0;display:flex;gap:12px;align-items:center;justify-content:center;padding:10px 44px 10px 18px;background:linear-gradient(90deg,${brand},${accent});color:#fff;font-size:14px;box-shadow:0 4px 18px #0003}
+  .stick.bottom{top:auto;bottom:0}.stick .ico{font-size:18px}.stick a,.stick button.go{color:#fff;background:#ffffff22;border:1px solid #ffffff66;border-radius:99px;padding:5px 14px;text-decoration:none;font-size:13px;cursor:pointer}.stick .close{color:#fff;position:absolute;right:12px;top:6px}
+  .stick .prog{width:160px;height:8px;background:#ffffff44;border-radius:99px;overflow:hidden}.stick .prog i{display:block;height:100%;background:#fff;width:0;transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+  .bar2{height:12px;background:#eee;border-radius:99px;overflow:hidden;margin:8px 0 6px;position:relative}.bar2 i{display:block;height:100%;background:linear-gradient(90deg,${brand},${accent});width:0;transition:width 1.4s cubic-bezier(.2,.8,.2,1)}
+  .bar2 .proj{position:absolute;top:0;height:100%;width:0;transition:width 1.4s cubic-bezier(.2,.8,.2,1);background:repeating-linear-gradient(45deg,${accent}88,${accent}88 6px,${accent}44 6px,${accent}44 12px);border-left:2px solid #fff}
+  .nums{display:flex;justify-content:space-between;font-size:11px;color:#888}.gain{font-size:13px;margin:10px 0 4px}.up{display:none;background:${brand}14;border:1px solid ${brand}44;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:8px}
+  .clock{display:flex;gap:8px;justify-content:center;margin:12px 0}.clock b{background:${ink};color:#fff;border-radius:8px;padding:8px 10px;font-size:22px;min-width:52px;text-align:center;font-variant-numeric:tabular-nums}.clock b small{display:block;font-size:9px;font-weight:400;opacity:.7;letter-spacing:1px}
+  .code{display:flex;gap:8px;align-items:center;justify-content:center;margin:12px 0}.code span{border:2px dashed ${brand};color:${brand};font-weight:800;letter-spacing:2px;padding:10px 16px;border-radius:8px;font-size:18px}.code button{background:${ink};color:#fff;border:0;border-radius:8px;padding:10px 14px}
+  .field{display:flex;gap:8px;margin:12px 0}.field input{flex:1;border:1px solid #ccc;border-radius:8px;padding:11px 12px;font-size:14px}.field button{background:${brand};color:#fff;border:0;border-radius:8px;padding:0 16px;font-weight:700}
+  .opts{display:grid;gap:8px;margin:12px 0}.opts button{border:1px solid #ddd;background:#fff;border-radius:10px;padding:11px;text-align:left;font-size:14px}.opts button:hover{border-color:${brand}}.opts button.on{background:${brand};color:#fff;border-color:${brand}}
+  .wheel{width:220px;height:220px;border-radius:50%;margin:12px auto;position:relative;border:6px solid ${ink};transition:transform 3.2s cubic-bezier(.15,.85,.2,1)}
+  .wheel span{position:absolute;transform:translate(-50%,-50%);font-size:11px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px #0006}
+  .pin{width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:22px solid ${brand};margin:0 auto -14px;position:relative;z-index:1}
+  .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#111;color:#fff;font-size:12px;padding:8px 14px;border-radius:99px;opacity:0;transition:opacity .25s;white-space:nowrap;max-width:calc(100vw - 40px);overflow:hidden;text-overflow:ellipsis}
+  .toast.in{opacity:.95}.toast.bad{background:#b3261e}
+  @media(max-width:600px){.bar{bottom:8px;width:calc(100vw - 16px);padding:8px;gap:5px}.brand{width:100%;text-align:center}.bar button{font-size:11px;padding:7px}
+    .scene,.scene.wide,.scene.popup,.scene.sheet{right:16px;left:16px;width:auto;top:auto;bottom:115px;transform:none;max-height:calc(100dvh - 135px)}.wide .body{display:block;padding:20px}.body{padding:18px}h1{font-size:22px}.sheet .row{display:block}}
+  `;
+  const MARKUP = `<div class="backdrop" hidden></div><nav class="bar" aria-label="demo panel"></nav><section class="scene" role="region" hidden></section><div class="stick" hidden></div><div class="toast" role="status"></div>`;
+  let styleMode = 'adopted';
+  try { const sheet = new CSSStyleSheet(); sheet.replaceSync(CSS); root.adoptedStyleSheets = [sheet]; setHTML(root, MARKUP); }
+  catch { styleMode = 'inline'; setHTML(root, `<style>${CSS}</style>` + MARKUP); }
+
+  const $ = (s) => root.querySelector(s);
+  const bar = $('.bar'), scene = $('.scene'), stick = $('.stick'), backdrop = $('.backdrop'), toastEl = $('.toast');
+  const scenes = SPEC.scenes || [];
+  const status = {};
+  const state = { added: [] };
+  let selected = -1, toastTimer, ticker = null, exitHandler = null, bodyPad = null;
+  function toast(msg, bad) {
+    toastEl.textContent = msg; toastEl.classList.toggle('bad', !!bad); toastEl.classList.add('in');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('in'), bad ? 4000 : 1800);
+  }
+
+  // ── page edits (saved for restore)
+  const edits = [];
+  function save(el) {
+    if (edits.some(e => e.el === el)) return;
+    const nodes = [];
+    const walk = node => { nodes.push({node, children: [...node.childNodes], value: node.nodeValue}); [...node.childNodes].forEach(walk); };
+    walk(el);
+    edits.push({el, nodes, cls: el.getAttribute('class'), style: el.getAttribute('style')});
+  }
+  function restoreEdits() {
+    while (edits.length) {
+      const e = edits.pop();
+      if (!e.el.isConnected) continue;
+      // Restore the same nodes, including listeners; does not roll back application state.
+      for (const saved of [...e.nodes].reverse()) {
+        if (saved.node.nodeType !== Node.ELEMENT_NODE) saved.node.nodeValue = saved.value;
+        else saved.node.replaceChildren(...saved.children);
+      }
+      for (const [name,value] of [['class',e.cls],['style',e.style]]) {
+        if (value == null) e.el.removeAttribute(name); else e.el.setAttribute(name,value);
+      }
+    }
+    if (bodyPad != null) { document.body.style.paddingTop = bodyPad; bodyPad = null; }
+  }
+  function setText(el, value) {
+    // Replace the visible text but keep child elements (icons, loaders) that the site's own scripts may depend on
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const nodes = []; let n;
+    while ((n = walker.nextNode())) { if (n.nodeValue.trim()) nodes.push(n); }
+    if (!nodes.length) { el.textContent = value; return; }
+    nodes.sort((a, b) => b.nodeValue.trim().length - a.nodeValue.trim().length);
+    nodes[0].nodeValue = value;
+    nodes.slice(1).forEach((x) => { x.nodeValue = ''; });
+  }
+  function applyTarget(t) {
+    const el = pick(t.selectors); if (!el) return false;
+    save(el);
+    if (t.html != null) setHTML(el, clean(fill(t.html)));
+    else if (t.text != null) setText(el, fill(t.text));
+    if (t.style) el.style.cssText += ';' + t.style;
+    if (t.badge) { const b = document.createElement('span'); b.textContent = fill(t.badge); b.style.cssText = `display:inline-block;margin-left:8px;padding:2px 9px;border-radius:99px;background:${brand};color:#fff;font-size:11px;font-weight:700;vertical-align:middle;${t.badge_style || ''}`; el.appendChild(b); }
+    if (t.highlight !== false && (t.style || t.html != null || t.text != null)) el.style.outline = `2px dashed ${brand}88`;
+    return true;
+  }
+  function bumpNumber(selectors, delta, asMoney) {
+    const el = pick(selectors); if (!el) return;
+    save(el);
+    const v = parseFloat(el.textContent.replace(/[^\d.]/g, '')) || 0;
+    el.textContent = asMoney ? money(v + delta) : String(v + delta);
+  }
+
+  // ── building blocks
+  const foot = () => `<footer class="foot">${text(SPEC.meeting?.disclaimer || T.foot)}</footer>`;
+  const head = (d) => `<div class="head ${d.head_style === 'brand' ? 'hd-brand' : ''}">${d.icon && d.head_style === 'brand' ? `<span class="ico">${text(d.icon)}</span>` : ''}<b>${h(d.header || cust.name || '')}</b><button class="close" data-action="hide" aria-label="close">×</button></div>`;
+  const intro = (d) => `${d.icon && d.head_style !== 'brand' ? `<div class="symbol" aria-hidden="true">${text(d.icon)}</div>` : ''}${d.copy?.eyebrow ? `<span class="tag">${h(d.copy.eyebrow)}</span>` : ''}${d.copy?.title ? `<h1 tabindex="-1">${h(d.copy.title)}</h1>` : ''}${d.copy?.body ? `<p>${h(d.copy.body)}</p>` : ''}`;
+  const cardBlock = (d) => (d.card ? `<div class="card">${d.card.eyebrow ? `<small>${h(d.card.eyebrow)}</small>` : ''}<b>${h(d.card.title)}</b><span>${h(d.card.detail)}</span></div>` : '') + (d.rows?.length ? `<div class="rows">${d.rows.map(([k, v]) => `<div class="row"><span>${h(k)}</span><b>${h(v)}</b></div>`).join('')}</div>` : '');
+  const ctaBlock = (d) => `${d.cta_scene && d.copy?.cta ? `<button class="cta" data-goto="${text(d.cta_scene)}">${h(d.copy.cta)} →</button>` : d.cta_url && d.copy?.cta ? `<a class="cta" href="${text(d.cta_url)}">${h(d.copy.cta)} →</a>` : ''}${d.copy?.later !== '' ? `<button class="later" data-action="hide">${text(d.copy?.later || T.later)}</button>` : ''}${d.note ? `<div class="note">${h(d.note)}</div>` : ''}`;
+  const items = (d, addable) => `<div class="items ${d.layout === 'sheet' ? 'row' : ''}">${(d.products || []).map((p, i) => `<div class="item" data-i="${i}"><img src="${text(p.img || '')}" alt=""><div><div class="n">${h(p.name)}</div>${p.tag ? `<div class="t">${h(p.tag)}</div>` : ''}<div class="p">${money(p.price)}</div></div>${addable ? `<button class="add">${text(d.copy?.item_cta || T.add)}</button>` : (p.url ? `<a href="${text(p.url)}">${text(d.copy?.item_cta || T.view)}</a>` : '')}</div>`).join('')}</div>`;
+  const stats = (d) => `<div class="stats">${(d.stats || []).map((s) => `<div class="stat"><em>${text(s.value)}</em><span>${h(s.label)}</span></div>`).join('')}</div>${d.stock_line ? `<span class="pill">${h(d.stock_line)}</span>` : ''}`;
+  const cls = (d, extra) => [extra || '', d.layout === 'wide' ? 'wide' : '', d.layout === 'sheet' ? 'sheet' : '', d.theme === 'dark' ? 'dark' : '', d.position ? 'pos-' + d.position : ''].join(' ');
+  const wrap = (d, inner, extra) => ({ className: cls(d, extra), html: head(d) + `<div class="body">${inner}</div>` + foot() });
+  const orderTotal = (d) => num(d.total_var || 'cart_total', d.order_total) + state.added.reduce((s, p) => s + (Number(p.price) || 0), 0);
+  function sticky(d, inner, bottom) {
+    stick.className = 'stick ' + (bottom || d.position === 'bottom' ? 'bottom' : '');
+    setHTML(stick, `${d.icon ? `<span class="ico">${text(d.icon)}</span>` : ''}${inner}<button class="close" data-action="hide" aria-label="close">×</button>`);
+    applyStyles(stick); stick.hidden = false;
+    if (d.push_body && !bottom && d.position !== 'bottom') { if (bodyPad == null) bodyPad = document.body.style.paddingTop; document.body.style.paddingTop = '44px'; }
+  }
+  function clock(d) {
+    const end = Date.now() + (Number(d.ends_in_minutes) || 30) * 60000;
+    const tick = () => {
+      const left = Math.max(0, end - Date.now());
+      const hh = Math.floor(left / 3600000), mm = Math.floor(left / 60000) % 60, ss = Math.floor(left / 1000) % 60;
+      root.querySelectorAll('[data-clock]').forEach((el) => { setHTML(el, `<b>${String(hh).padStart(2, '0')}<small>HRS</small></b><b>${String(mm).padStart(2, '0')}<small>MIN</small></b><b>${String(ss).padStart(2, '0')}<small>SEC</small></b>`); });
+      root.querySelectorAll('[data-clock-inline]').forEach((el) => { el.textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`; });
+    };
+    clearInterval(ticker); tick(); ticker = setInterval(tick, 1000);
+  }
+  const grow = (rootEl) => setTimeout(() => rootEl.querySelectorAll('[data-w]').forEach((el) => { el.style.width = el.dataset.w + '%'; }), 120);
+  const thanks = (d) => { setHTML(scene.querySelector('.body'), `<div class="symbol">✓</div><h1>${h(d.copy?.thanks || T.thanks)}</h1>${d.copy?.thanks_body ? `<p>${h(d.copy.thanks_body)}</p>` : ''}<div class="note">${T.foot}</div>`); };
+  const modal = (d) => { if (d.layout === 'popup') { backdrop.hidden = false; return 'popup'; } return ''; };
+
+  // ── presets
+  const R = {
+    banner(d) {
+      const body = d.layout === 'wide' ? `<div>${intro(d)}</div><div>${cardBlock(d)}${items(d)}${ctaBlock(d)}</div>` : intro(d) + cardBlock(d) + items(d) + ctaBlock(d);
+      return wrap(d, body);
+    },
+    popup(d) { backdrop.hidden = false; return wrap(d, intro(d) + cardBlock(d) + items(d) + ctaBlock(d), 'popup'); },
+    sticky_bar(d) {
+      sticky(d, `<span>${h(d.copy?.title)}</span>${d.cta_url && d.copy?.cta ? `<a href="${text(d.cta_url)}">${h(d.copy.cta)}</a>` : ''}`);
+      return { silent: true };
+    },
+    inline_edit(d) {
+      const found = (d.targets || []).filter(applyTarget).length;
+      if (!found) return { silent: true, ok: false, reason: T.noTarget + ' ' + JSON.stringify((d.targets || []).map((t) => t.selectors)) };
+      if (d.copy?.title) return wrap(Object.assign({ position: 'tr' }, d), intro(d) + ctaBlock(d));
+      return { silent: true };
+    },
+    reco_card(d) {
+      const r = wrap(d, intro(d) + items(d, d.addable) + ctaBlock(d));
+      r.ok = (d.products || []).length > 0; r.reason = 'products[] empty';
+      r.after = () => scene.querySelectorAll('button.add').forEach((b) => b.addEventListener('click', () => {
+        const p = d.products[Number(b.closest('.item').dataset.i)];
+        state.added.push(p); b.textContent = T.added; b.classList.add('ok'); b.disabled = true;
+        if (d.bump?.qty_selectors) bumpNumber(d.bump.qty_selectors, 1, false);
+        if (d.bump?.total_selectors) bumpNumber(d.bump.total_selectors, Number(p.price) || 0, true);
+        toast(`${T.added} ${p.name}`);
+      }));
+      return r;
+    },
+    social_proof(d) {
+      const r = wrap(Object.assign({ head_style: 'brand' }, d), intro(d) + stats(d) + ctaBlock(d));
+      r.ok = (d.stats || []).length > 0; r.reason = 'stats[] empty'; return r;
+    },
+    tier_progress(d) {
+      const t = d.tier || {};
+      const total = orderTotal(d);
+      const gain = Math.round(total * (Number(t.rate) || 0));
+      const ytd = Number(t.ytd) || 0, nextAt = Number(t.next_at) || 1;
+      const before = Math.min(100, Math.round(ytd / nextAt * 100)), after = Math.min(100, Math.round((ytd + gain) / nextAt * 100));
+      const up = ytd + gain >= nextAt;
+      Object.assign(vars, { tier_now: t.now, tier_next: t.next, tier_gain: fmt(gain), tier_ytd: fmt(ytd), tier_next_at: fmt(nextAt), order_total: money(total), tier_rate: Math.round((t.rate || 0) * 100) + '%' });
+      const inner = intro(d) +
+        `<div class="bar2"><i data-w="${before}"></i><span class="proj" data-style="left:${before}%" data-w="${Math.max(0, after - before)}"></span></div>
+        <div class="nums"><span>${text(t.now)}</span><span>${text(t.next)} · ${fmt(nextAt)}${text(t.unit || 'pt')}</span></div>
+        <div class="gain">${h(d.copy?.gain_line || '')}</div>
+        <div class="up" ${up ? 'data-style="display:block"' : ''}>${h(d.copy?.up_line || '')}</div>` + ctaBlock(d);
+      const r = wrap(Object.assign({ head_style: 'brand', position: 'tr' }, d), inner);
+      r.after = () => grow(scene);
+      return r;
+    },
+    countdown(d) {
+      if (d.as === 'sticky') {
+        sticky(d, `<span>${h(d.copy?.title)}</span><b data-clock-inline data-style="font-variant-numeric:tabular-nums"></b>${d.cta_url && d.copy?.cta ? `<a href="${text(d.cta_url)}">${h(d.copy.cta)}</a>` : ''}`);
+        clock(d); return { silent: true };
+      }
+      const r = wrap(d, intro(d) + `<div class="clock" data-clock></div>` + cardBlock(d) + ctaBlock(d), modal(d));
+      r.after = () => clock(d); return r;
+    },
+    free_shipping_bar(d) {
+      const th = Number(d.threshold) || 1, now = orderTotal(d), left = Math.max(0, th - now), pct = Math.min(100, Math.round(now / th * 100));
+      Object.assign(vars, { remaining: money(left), threshold: money(th), current_total: money(now) });
+      const line = left > 0 ? h(d.copy?.title) : h(d.copy?.done_line || d.copy?.title);
+      if (d.as !== 'card') {
+        sticky(d, `<span>${line}</span><span class="prog"><i data-w="${pct}"></i></span>${d.cta_url && d.copy?.cta ? `<a href="${text(d.cta_url)}">${h(d.copy.cta)}</a>` : ''}`);
+        grow(stick); return { silent: true };
+      }
+      const r = wrap(d, `${d.copy?.eyebrow ? `<span class="tag">${h(d.copy.eyebrow)}</span>` : ''}<h1 tabindex="-1">${line}</h1><div class="bar2"><i data-w="${pct}"></i></div><div class="nums"><span>${money(now)}</span><span>${money(th)}</span></div>` + ctaBlock(d));
+      r.after = () => grow(scene); return r;
+    },
+    coupon(d) {
+      const r = wrap(d, intro(d) + `<div class="code"><span>${text(d.code || 'WELCOME10')}</span><button class="cp">${T.copy}</button></div>` + cardBlock(d) + ctaBlock(d), modal(d));
+      r.after = () => { const b = scene.querySelector('.cp'); b.addEventListener('click', () => { navigator.clipboard?.writeText(d.code || '').catch(() => {}); b.textContent = T.copied; }); };
+      return r;
+    },
+    exit_intent(d) {
+      const open = () => { backdrop.hidden = false; scene.className = 'scene ' + cls(d, 'popup'); setHTML(scene, head(d) + `<div class="body">${intro(d)}${cardBlock(d)}${ctaBlock(d)}</div>` + foot()); applyStyles(scene); scene.hidden = false; requestAnimationFrame(() => scene.classList.add('in')); };
+      if (d.trigger === 'immediate' || exitHandler) { if (exitHandler) { document.removeEventListener('mouseleave', exitHandler); exitHandler = null; } open(); return { silent: true }; }
+      exitHandler = (e) => { if (e.clientY <= 0) { document.removeEventListener('mouseleave', exitHandler); exitHandler = null; open(); } };
+      document.addEventListener('mouseleave', exitHandler);
+      return { silent: true, msg: T.armed };
+    },
+    lead_form(d) {
+      const r = wrap(d, intro(d) + `<div class="field"><input type="${text(d.field_type || 'email')}" placeholder="${text(d.placeholder || 'you@example.com')}" aria-label="input"><button class="go">${text(d.copy?.cta || T.submit)}</button></div>${d.consent ? `<div class="sub">${h(d.consent)}</div>` : ''}${d.note ? `<div class="note">${h(d.note)}</div>` : ''}`, modal(d));
+      r.after = () => scene.querySelector('.go').addEventListener('click', () => thanks(d));
+      return r;
+    },
+    survey(d) {
+      const r = wrap(d, intro(d) + `<div class="opts">${(d.options || []).map((o) => `<button>${h(o)}</button>`).join('')}</div>${d.note ? `<div class="note">${h(d.note)}</div>` : ''}`, modal(d));
+      r.ok = (d.options || []).length > 0; r.reason = 'options[] empty';
+      r.after = () => scene.querySelectorAll('.opts button').forEach((b) => b.addEventListener('click', () => { b.classList.add('on'); setTimeout(() => thanks(d), 500); }));
+      return r;
+    },
+    spin_to_win(d) {
+      const segs = d.segments || ['5%', '10%', 'FREE SHIP', '15%', 'GIFT', '20%'];
+      const n = segs.length, step = 360 / n;
+      const grad = segs.map((s, i) => `${i % 2 ? accent : brand} ${i * step}deg ${(i + 1) * step}deg`).join(',');
+      const labels = segs.map((s, i) => { const a = (i * step + step / 2) * Math.PI / 180; return `<span data-style="left:${(50 + 33 * Math.sin(a)).toFixed(1)}%;top:${(50 - 33 * Math.cos(a)).toFixed(1)}%">${text(s)}</span>`; }).join('');
+      const r = wrap(d, intro(d) + `<div class="pin"></div><div class="wheel" data-style="background:conic-gradient(${grad})">${labels}</div><button class="cta go">${text(d.copy?.cta || T.spin)}</button>${d.note ? `<div class="note">${h(d.note)}</div>` : ''}`, 'popup');
+      backdrop.hidden = false;
+      r.after = () => { const w = scene.querySelector('.wheel'), b = scene.querySelector('.go'); b.addEventListener('click', () => {
+        const win = Math.min(n - 1, Number(d.win_index) || 0); b.disabled = true;
+        w.style.transform = `rotate(${360 * 5 - (win * step + step / 2)}deg)`;
+        setTimeout(() => { setHTML(scene.querySelector('.body'), `<div class="symbol">🎉</div><h1>${h(d.copy?.win_title || segs[win])}</h1>${d.code ? `<div class="code"><span>${text(d.code)}</span></div>` : ''}${d.copy?.win_body ? `<p>${h(d.copy.win_body)}</p>` : ''}${ctaBlock(d)}`); }, 3400);
+      }); };
+      return r;
+    },
+    custom(d) { const r = wrap(d, `<div data-style="grid-column:1/-1">${clean(fill(d.customHtml))}</div>`, modal(d)); r.ok = !!d.customHtml; r.reason = 'customHtml empty'; return r; },
+  };
+
+  function hide() {
+    scene.hidden = true; scene.classList.remove('in'); backdrop.hidden = true; stick.hidden = true;
+    clearInterval(ticker); ticker = null;
+    if (bodyPad != null) { document.body.style.paddingTop = bodyPad; bodyPad = null; }
+    if (selected >= 0) $(`[data-scene="${selected}"]`)?.focus();
+  }
+  function reset() {
+    hide(); restoreEdits(); state.added = []; selected = -1;
+    if (exitHandler) { document.removeEventListener('mouseleave', exitHandler); exitHandler = null; }
+    root.querySelectorAll('[data-scene]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+    toast(T.reset_done);
+  }
+  function show(i) {
+    const d = scenes[i]; if (!d) return;
+    if (d.page && d.page !== 'any' && d.page !== page) { toast(T.wrongPage(d.page), true); return; }
+    hide(); if (!d.keep_edits) restoreEdits(); selected = i;
+    root.querySelectorAll('[data-scene]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.scene) === i)));
+    const r = R[d.pattern] || R.banner;
+    let out;
+    try { out = r(d); } catch (e) { status[d.id] = 'FAIL: ' + e.message; toast(`${d.label}: ${T.fail} ${e.message}`, true); return; }
+    if (!out.silent) {
+      scene.className = 'scene ' + (out.className || '');
+      setHTML(scene, out.html); applyStyles(scene); scene.hidden = false; scene.scrollTop = 0;
+      scene.querySelectorAll('img').forEach((im) => im.addEventListener('error', () => { im.style.visibility = 'hidden'; }));
+      requestAnimationFrame(() => scene.classList.add('in'));
+      scene.querySelector('h1')?.focus({ preventScroll: true });
+    }
+    if (out.after) out.after();
+    const ok = out.ok !== false;
+    status[d.id] = ok ? 'OK' : 'FAIL: ' + out.reason;
+    toast(out.msg || `${d.label}: ${ok ? T.ok : T.fail + ' · ' + out.reason}`, !ok);
+  }
+  function report() {
+    return { shell: VER, url: location.href, page, style_mode: styleMode, trusted_types: !!TT, vars, ua: navigator.userAgent, scenes: scenes.map((s) => ({ id: s.id, page: s.page, pattern: s.pattern, status: status[s.id] || 'not run' })) };
+  }
+  async function copyDiag() {
+    const j = JSON.stringify(report(), null, 2);
+    try { await navigator.clipboard.writeText(j); toast(T.diag + ' ✓'); } catch { console.log(j); toast('console'); }
+  }
+  function buildBar() {
+    setHTML(bar, `<span class="brand">${text((cust.name || '').toUpperCase())} × DEMO KIT · ${T.demo}</span>` +
+      scenes.map((s, i) => s.hidden ? '' : `<button data-scene="${i}" aria-pressed="false" class="${s.page && s.page !== 'any' && s.page !== page ? 'off' : ''}" title="${text(s.page || 'any')} · ${text(s.pattern)}">${text(s.label)}</button>`).join('') +
+      `<button class="util" data-action="reset">${T.reset}</button><button class="util" data-action="diag">${T.diag}</button><button class="util" data-action="destroy">${T.exit}</button>`);
+  }
+  function onKey(e) {
+    if (e.key === 'Escape') { hide(); return; }
+    if (e.composedPath().some((el) => el.tagName && /INPUT|TEXTAREA|SELECT/.test(el.tagName))) return;
+    const n = Number(e.key);
+    if (n >= 1 && n <= 9 && scenes[n - 1]) show(n - 1);
+  }
+  function destroy() {
+    hide(); restoreEdits(); document.removeEventListener('keydown', onKey); observer.disconnect();
+    if (exitHandler) document.removeEventListener('mouseleave', exitHandler);
+    history.pushState = origPush; history.replaceState = origReplace;
+    window.removeEventListener('popstate', onRoute); window.removeEventListener('hashchange', onRoute);
+    host.remove(); delete window[KEY];
+    if (previous?.isConnected) previous.focus({ preventScroll: true });
+  }
+
+  // ── SPA support: keep host mounted, re-detect page on route change
+  const observer = new MutationObserver(() => { if (!host.isConnected && document.body) document.body.appendChild(host); });
+  const origPush = history.pushState, origReplace = history.replaceState;
+  function onRoute() { setTimeout(() => { const p = detectPage(); if (p !== page) { page = p; hide(); restoreEdits(); buildBar(); toast('page: ' + page); } }, 400); }
+  history.pushState = function () { origPush.apply(this, arguments); onRoute(); };
+  history.replaceState = function () { origReplace.apply(this, arguments); onRoute(); };
+  window.addEventListener('popstate', onRoute); window.addEventListener('hashchange', onRoute);
+
+  root.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.scene !== undefined) show(Number(b.dataset.scene));
+    else if (b.dataset.goto) { const i = scenes.findIndex((x) => x.id === b.dataset.goto); if (i >= 0) show(i); }
+    else if (b.dataset.action === 'hide') hide();
+    else if (b.dataset.action === 'reset') reset();
+    else if (b.dataset.action === 'diag') copyDiag();
+    else if (b.dataset.action === 'destroy') destroy();
+  });
+  backdrop.addEventListener('click', hide);
+  document.addEventListener('keydown', onKey);
+  buildBar();
+  document.body.appendChild(host);
+  observer.observe(document.documentElement, { childList: true });
+  window[KEY] = { destroy, show, reset, report, spec: SPEC, state };
+  toast(`${VER} · ${cust.name || ''} · page: ${page}${styleMode === 'inline' ? ' · inline css' : ''}`);
+})();
+};</script></html>

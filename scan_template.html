@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demo Kit Site Scan Kit</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f4f6;color:#19212c;font:16px/1.7 -apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif}
+header{background:#fff;padding:18px 6vw;border-bottom:1px solid #ddd;font-weight:700;display:flex;justify-content:space-between;align-items:center}header small{font-weight:400;color:#777}
+main{max-width:900px;margin:40px auto;padding:0 24px 70px}
+h1{font-size:38px;line-height:1.2;letter-spacing:-1.5px;margin:0 0 8px}h2{font-size:21px;margin:0 0 10px}p{color:#606975;margin:6px 0}
+.card{padding:26px;background:#fff;border:1px solid #e0e3e7;border-radius:15px;margin:20px 0}
+.bookmark,button{display:inline-block;background:#1a1f27;color:#fff;border:0;border-radius:9px;padding:13px 20px;font:700 15px/1.5 inherit;text-decoration:none;cursor:pointer}button.alt{background:#e8eaee;color:#222}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:10px 8px;border-bottom:1px solid #eee;vertical-align:top}th{color:#555;font-weight:600;font-size:12px}
+textarea{width:100%;min-height:110px;font:13px/1.5 ui-monospace,Menlo,monospace;border:1px solid #cfd4db;border-radius:8px;padding:10px}details{margin-top:14px}summary{cursor:pointer;color:#444}
+small{color:#66717f}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}#status{font-size:13px;color:#555}
+ol li{margin:6px 0}code{background:#eef0f3;padding:1px 6px;border-radius:4px;font-size:13px}
+</style>
+<script id="scan-src" type="text/plain">__SCAN__</script>
+<header><span>DEMO KIT · SITE SCAN KIT</span><small id="hdr-ver"></small></header>
+<main>
+<small>STEP 0 · BEFORE THE GEM</small>
+<h1>Scan the customer site,<br>get the profile your model needs</h1>
+<p>One bookmark. It only reads what is already on screen (the DOM) and sends nothing. The result is copied as JSON and goes into step 1 of the Kit Builder.</p>
+
+<section class="card">
+  <h2>1. Drag this button to the Chrome bookmarks bar</h2>
+  <p>Show the bookmarks bar: Mac ⌘⇧B / Windows Ctrl⇧B. The same bookmark works for every customer.</p>
+  <div class="row"><a id="bm" class="bookmark" href="#">Demo Kit · Site scan</a><button id="copy-code" class="alt">Copy code</button><button id="copy-console" class="alt">Copy console code</button><span id="status"></span></div>
+  <details><summary>If dragging does not work</summary>
+    <p>Bookmark any page → Edit → paste the whole code below into the URL field.</p>
+    <textarea id="code" readonly></textarea></details>
+</section>
+
+<section class="card">
+  <h2>2. Three clicks on the customer site</h2>
+  <ol>
+    <li>On the <b>home page</b>, click the bookmark → a panel appears; no need to close it.</li>
+    <li>Go to a <b>product page</b> → click again (captures product name, price and add-to-cart selectors).</li>
+    <li>Go to the <b>cart</b> (ideally with one item) → click again → <b>Copy JSON</b> → paste into step 1 of <code>KIT_BUILDER.html</code>.</li>
+  </ol>
+  <p><small>Pages accumulate within the same tab. Closing the tab clears them; "Reset session" does too. Skip the cart if it needs a login.</small></p>
+</section>
+
+<section class="card">
+  <h2>3. What the panel tells you</h2>
+  <table>
+    <tr><th>Item</th><th>Meaning</th><th>Where your model uses it</th></tr>
+    <tr><td>page · render</td><td>Page type (home/pdp/plp/cart), SSR or SPA, detected frameworks</td><td>Scene page assignment, SPA handling</td></tr>
+    <tr><td>products</td><td>Real products read from JSON-LD, OG tags and product cards (name, price, URL, image)</td><td>Recommendation and upsell scenes. Nothing outside this list is used</td></tr>
+    <tr><td>nav links</td><td>Real links from header, nav and footer</td><td>CTA targets. The builder rejects URLs not in this list</td></tr>
+    <tr><td>selectors</td><td>CSS selector candidates for product name, price, add-to-cart, cart count and total</td><td>Inline edits and context variables (<code>{{product_name}}</code> etc.)</td></tr>
+    <tr><td>colors · tags</td><td>Brand colors from buttons and header; installed martech tags (Braze, GTM, …)</td><td>Theme colors; competitor context</td></tr>
+    <tr><td>csp</td><td>Whether script-inserted styles actually apply</td><td>⚠ means present from the local rehearsal instead of the live site</td></tr>
+  </table>
+</section>
+
+<section class="card">
+  <h2>4. When it does not work</h2>
+  <table>
+    <tr><th>Symptom</th><th>Cause</th><th>What to do</th></tr>
+    <tr><td>Nothing happens on click</td><td>Company policy blocks javascript: bookmarks</td><td>F12 → Console → paste the "Copy console code" output → Enter (type <code>allow pasting</code> the first time)</td></tr>
+    <tr><td>Panel shows ⚠ styles blocked</td><td>Very strict site CSP (inline and CSSOM both blocked)</td><td>Present from the kit's local rehearsal. The spec is unaffected</td></tr>
+    <tr><td>Panel shows ⚠ Trusted Types</td><td>The site restricts Trusted Types policy names</td><td>The demo shell may fail. Run the kit once on the real site before the meeting</td></tr>
+    <tr><td>products 0 on a product page</td><td>Lazy loading, or prices in images / non-standard markup</td><td>Scroll to the bottom and click again. Still 0: use a text-only scene or scan a readable product page</td></tr>
+    <tr><td>Fewer than 10 nav links</td><td>SPA uses click handlers instead of links</td><td>Visit each page you will show and click again (URLs accumulate). CTAs are chosen only from those</td></tr>
+    <tr><td>No product_name / price selectors</td><td>Run on the home page (normal) or non-standard markup</td><td>Run on a product page. If still missing, use banner/popup scenes instead of inline edits</td></tr>
+    <tr><td>Only black/grey colors</td><td>Monochrome brand (panel says "no saturated brand color")</td><td>Normal. brand_color is black; your model asks for an accent</td></tr>
+    <tr><td>⚠ content in an iframe</td><td>Legacy frame layout</td><td>Open the frame URL in a new tab and run there</td></tr>
+    <tr><td>⚠ session storage unavailable</td><td>Incognito or storage blocked</td><td>Copy "This page only" on each page and paste all of them (your model merges)</td></tr>
+    <tr><td>Copy button does nothing</td><td>http site (no clipboard API)</td><td>A text box opens in the panel → Ctrl+C with the text selected</td></tr>
+    <tr><td>Pages behind login</td><td>Cart, account</td><td>Log in with your own account and run. The JSON holds no personal data, but check the text samples before sharing</td></tr>
+  </table>
+</section>
+
+<section class="card">
+  <h2>5. What it does and does not do</h2>
+  <p>The scanner reads loaded page metadata, text, product information and URLs, and stores results in this tab’s sessionStorage. Closing its panel does not erase the stored scan; use Clear session or close the tab. Scan public pages only, inspect the JSON, and remove identifiers before sharing it with an AI provider. The scanner does not submit forms.</p>
+</section>
+</main>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const src = $('#scan-src').textContent;
+  const href = 'javascript:' + encodeURIComponent(src);
+  $('#bm').href = href; $('#code').value = href;
+  $('#hdr-ver').textContent = ((src.match(/VER = '([^']+)'/) || [])[1] || '') + ' · ' + (href.length / 1024).toFixed(1) + ' KB';
+  $('#copy-console').onclick = async () => { try { await navigator.clipboard.writeText(src); $('#status').textContent = 'Console code copied. Paste it into the DevTools console on the customer site.'; } catch { $('#code').closest('details').open = true; $('#code').value = src; $('#code').select(); } };
+  $('#copy-code').onclick = async () => { try { await navigator.clipboard.writeText(href); $('#status').textContent = 'Copied. Paste into the bookmark URL field.'; } catch { $('#code').closest('details').open = true; $('#code').select(); } };
+})();
+</script>
+</html>

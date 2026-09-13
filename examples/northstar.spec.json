@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "ui_lang": "en",
+  "customer": {
+    "name": "Northstar",
+    "lang": "en",
+    "brand_color": "#225D50"
+  },
+  "site": {
+    "hosts": [
+      "127.0.0.1"
+    ],
+    "entry_url": "http://127.0.0.1:8080/dist/PLAYGROUND.html",
+    "currency": "USD",
+    "pages": [
+      {
+        "id": "home",
+        "match": ".*",
+        "url": "http://127.0.0.1:8080/dist/PLAYGROUND.html"
+      }
+    ],
+    "allowed_urls": [
+      "http://127.0.0.1:8080/dist/PLAYGROUND.html"
+    ],
+    "readers": {}
+  },
+  "vars": {},
+  "meeting": {
+    "title": "A different next step for each visitor",
+    "subtitle": "Fictional outdoor store \u00b7 local concept demo",
+    "opening_line": "This is a local simulation with fictional visitor conditions. No orders or leads are submitted. Images and links in other kits may make requests.",
+    "closing_line": "The experience is a prototype. Production needs identity, consent, events and campaign delivery.",
+    "prep_checklist": [
+      "Run the local checks.",
+      "Use fictional profiles only."
+    ],
+    "disclaimer": "FICTIONAL STORE \u00b7 NO ORDER OR LEAD SUBMISSION"
+  },
+  "scenes": [
+    {
+      "id": "welcome",
+      "label": "1 \u00b7 Return visit",
+      "page": "any",
+      "pattern": "banner",
+      "visitor": "Returning visitor interested in day hikes (fictional)",
+      "copy": {
+        "title": "Your next day outside starts here.",
+        "body": "Pick up your trail planning where you left off.",
+        "cta": "See the next step"
+      },
+      "cta_scene": "inline",
+      "talk_line": "A returning visitor gets a relevant next step.",
+      "real_impl_note": "Requires consent-aware browsing events and a defined audience."
+    },
+    {
+      "id": "inline",
+      "label": "2 \u00b7 On-page change",
+      "page": "any",
+      "pattern": "inline_edit",
+      "visitor": "Visitor exploring the trail collection (fictional)",
+      "targets": [
+        {
+          "selectors": [
+            "#hero-title"
+          ],
+          "text": "Make room for your next trail."
+        }
+      ],
+      "copy": {
+        "title": "Personalization on the page"
+      },
+      "talk_line": "The page headline changes while the store remains visible. Reset restores the original nodes.",
+      "real_impl_note": "Requires an eligible placement and controlled content experiments."
+    },
+    {
+      "id": "owner",
+      "label": "3 \u00b7 After purchase",
+      "page": "any",
+      "pattern": "popup",
+      "visitor": "Existing owner (fictional)",
+      "copy": {
+        "title": "More miles. Less guesswork.",
+        "body": "Find care guidance for the gear you already own.",
+        "later": "Keep exploring"
+      },
+      "talk_line": "Owners see support rather than the same acquisition message.",
+      "real_impl_note": "Requires purchase events and suppression of acquisition campaigns."
+    }
+  ]
+}

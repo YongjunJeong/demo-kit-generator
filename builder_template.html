@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demo Kit Builder</title>
+<style>
+[hidden]{display:none!important}
+*{box-sizing:border-box}body{margin:0;background:#f3f4f6;color:#19212c;font:16px/1.7 -apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif}
+header{background:#fff;padding:18px 6vw;border-bottom:1px solid #ddd;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+header span{color:var(--brand,#111)}header small{font-weight:400;color:#777}
+main{max-width:960px;margin:40px auto;padding:0 24px 70px}
+h1{font-size:40px;line-height:1.2;letter-spacing:-1.5px;margin:0 0 8px}h2{font-size:21px;margin:0 0 10px}p{color:#606975;margin:6px 0}
+.card{padding:26px;background:#fff;border:1px solid #e0e3e7;border-radius:15px;margin:20px 0}
+.bookmark,button{display:inline-block;background:var(--brand,#111);color:#fff;border:0;border-radius:9px;padding:13px 20px;font:700 15px/1.5 inherit;text-decoration:none;cursor:pointer}
+button.alt{background:#222c39}button.ghost{background:#e8eaee;color:#222}
+a{color:var(--brand,#111)}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:12px 8px;border-bottom:1px solid #eee;vertical-align:top}th{color:#555;font-weight:600;font-size:12px;letter-spacing:.5px}
+small{color:#66717f}textarea{width:100%;min-height:120px;font:13px/1.5 ui-monospace,Menlo,monospace;border:1px solid #cfd4db;border-radius:8px;padding:10px}
+#spec{min-height:260px}input{width:100%;border:1px solid #cfd4db;border-radius:8px;padding:9px 10px;font:14px/1.4 inherit}details{margin-top:14px}summary{cursor:pointer;color:#444}
+blockquote{margin:10px 0;border-left:3px solid var(--brand,#111);padding:4px 16px}
+.msgs{margin:12px 0;font-size:14px}.msgs .err{color:#b3261e}.msgs .warn{color:#8a5a00}.msgs .ok{color:#1b6e3a}.msgs div{padding:3px 0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.pill{display:inline-block;background:#eef1f5;border-radius:99px;padding:2px 10px;font-size:12px;color:#444}
+#status{font-size:13px;color:#555;margin-left:8px}
+.muted{opacity:.55}
+.steps{display:flex;gap:8px;margin:0 0 6px}.step{background:#e8eaee;color:#555;border-radius:99px;padding:4px 14px;font-size:13px}.step.on{background:var(--brand,#1a1f27);color:#fff}.step.done{background:#1b6e3a;color:#fff}
+#step1.collapsed>*:not(small):not(h2){display:none}#step1.collapsed h2{margin:0}#step1.collapsed{cursor:pointer;opacity:.75}
+@media(max-width:600px){h1{font-size:30px}td,th{font-size:13px;padding:10px 4px}main{padding:0 14px 50px}}
+</style>
+<script id="shell-src" type="text/plain">__SHELL__</script>
+<script id="embedded-spec" type="application/json">__SPEC__</script>
+<script id="embedded-scan" type="application/json">null</script>
+<header><span id="hdr-brand">DEMO KIT · DEMO KIT BUILDER</span><small id="hdr-ver"></small></header>
+<main>
+<section id="editor">
+<div class="steps"><span id="st1" class="step on">1 Site scan</span><span id="st2" class="step">2 Scene spec</span><span id="st3" class="step">3 Kit</span></div>
+
+<section id="step1" class="card">
+  <small>STEP 1 · SITE SCAN → GEM</small>
+  <h2>Paste the site scan JSON → check the brief → Model request</h2>
+  <p>Paste the JSON copied with the "Site scan" bookmark on the customer's site. The brief is pre-filled from the scan; just check and edit. <small>Already have a Scene spec? Skip to step 2.</small></p>
+  <textarea id="recon" spellcheck="false" placeholder='{ "scan": "scan 0.4", "site_name": "...", "pages": [ ... ] }' style="min-height:120px"></textarea>
+  <div class="row" style="margin-top:10px"><button id="read-recon">Read scan</button><span id="recon-status"></span></div>
+  <div id="recon-sum" class="msgs"></div>
+  <div id="gem-req" hidden style="margin-top:14px;padding:18px;border:2px solid #1b6e3a;border-radius:12px;background:#f6fbf7">
+    <h2 style="margin-top:0;font-size:18px">Brief <small style="font-weight:400">— pre-filled from the scan. Fix only what is wrong</small></h2>
+    <table>
+      <tr><td style="width:160px">Customer</td><td><input id="b-customer" placeholder="e.g. MUJI USA"></td></tr>
+      <tr><td>Industry</td><td><input id="b-industry" placeholder="e.g. Lifestyle retail (Retail)"></td></tr>
+      <tr><td>Meeting purpose</td><td><input id="b-purpose" placeholder="e.g. 3-minute demo in the first meeting"></td></tr>
+      <tr><td>What the customer cares about</td><td><input id="b-pain" placeholder="e.g. returning-visitor personalization, cart abandonment, member retention"></td></tr>
+      <tr><td>Visitors to show</td><td><input id="b-visitors" placeholder="e.g. returning guest / member with a cart / VIP"></td></tr>
+      <tr><td>Pages</td><td><input id="b-pages" placeholder="e.g. home only / home + product page" value="home only"></td></tr>
+      <tr><td>Notes (optional)</td><td><input id="b-notes" placeholder="e.g. competitor in use (never in copy), tone, things to avoid"></td></tr>
+    </table>
+    <div class="row" style="margin-top:10px"><button id="gem-req-copy">Copy Model request</button><a class="bookmark" style="background:#222c39" href="https://gemini.google.com/" target="_blank" rel="noopener">Open Gemini ↗</a><span id="req-status"></span></div>
+    <p><small>Paste the request into your model chat; it returns a <b>spec JSON</b>. Put that into step 2 below.</small></p>
+    <textarea id="req-copy" hidden readonly style="min-height:70px;margin-top:8px"></textarea>
+  </div>
+</section>
+
+<section id="step2" class="card">
+  <small>STEP 2 · GEM → KIT</small>
+  <h2>Paste the spec JSON from your model → Build</h2>
+  <p>You can paste the whole Model answer; prose and code fences are stripped automatically. The step-1 scan is remembered and used to check URLs and products.</p>
+  <textarea id="spec" spellcheck="false" placeholder='{ "version": 1, "customer": { ... }, "scenes": [ ... ] }'></textarea>
+  <div class="row" style="margin-top:10px">
+    <button id="build">Build</button>
+    <button id="save" class="alt" hidden>Save standalone kit file</button>
+    <button id="copy-msgs" class="ghost" hidden>Copy validation messages (paste into Gem)</button>
+    <span id="status"></span>
+  </div>
+  <div id="msgs" class="msgs"></div>
+  <textarea id="msgs-copy" hidden readonly style="min-height:80px"></textarea>
+</section>
+</section>
+
+<div id="kit" hidden>
+  <small id="k-sub"></small>
+  <h1 id="k-title"></h1>
+  <p id="k-lead"></p>
+
+  <section class="card">
+    <h2>1. Drag this button to the Chrome bookmarks bar</h2>
+    <p>Show the bookmarks bar: Mac ⌘⇧B / Windows Ctrl⇧B. Replace any older bookmark for the same customer.</p>
+    <div class="row"><a id="bm" class="bookmark" href="#">Demo</a><button id="copy-code" class="alt">Copy code</button><button id="copy-console" class="ghost">Copy console code</button><span id="bm-size" class="pill"></span></div>
+    <details><summary>If dragging does not work</summary>
+      <p>Bookmark any page → Edit → paste the whole code below into the URL field. Not into the address bar or a search box.</p>
+      <textarea id="code" readonly></textarea></details>
+    <details><summary>Developer code (only where permitted)</summary>
+      <p>On the customer site: F12 → Console → paste the code from <b>Copy console code</b> → Enter. If Chrome asks you to type <code>allow pasting</code> once, do so and paste again. Re-paste after every page change. Saving it under Sources → Snippets lets you re-run with Ctrl+Enter.</p></details>
+  </section>
+
+  <section class="card">
+    <h2>2. Run order</h2>
+    <p><a id="k-entry" href="#" target="_blank" rel="noopener">Open the customer site ↗</a> → click the saved bookmark → buttons in the order below. After a page change, click the bookmark again.</p>
+    <table><thead><tr><th>Page</th><th>Button</th><th>Assumed visitor</th><th>What appears</th><th>CTA goes to</th></tr></thead><tbody id="k-order"></tbody></table>
+    <p><small>× / Esc: close scene · Reset: restore the page · Exit ×: remove the demo · number keys 1–9: switch scenes · Copy diagnostics: copy the run report JSON (paste into Gem to fix)</small></p>
+  </section>
+
+  <section class="card">
+    <h2>3. Talk track</h2>
+    <blockquote id="k-open"></blockquote>
+    <ol id="k-lines"></ol>
+    <blockquote id="k-close"></blockquote>
+    <div id="k-objections"></div>
+  </section>
+
+  <section class="card">
+    <h2>4. What the real setup needs (for scoping)</h2>
+    <p>The demo collects and decides none of this; the presenter picks fixed scenes.</p>
+    <table><thead><tr><th>Scene</th><th>Production implementation considerations</th><th>Source use case</th></tr></thead><tbody id="k-impl"></tbody></table>
+  </section>
+
+  <section class="card">
+    <h2>5. Pre-meeting checklist · local rehearsal</h2>
+    <ul id="k-prep"></ul>
+    <div class="row"><button id="rehearse" class="alt">Rehearse on this page</button>
+      <label>Assume page <select id="page-sel"></select></label></div>
+    <p><small>Runs the same code as the bookmark on this page. If company browser policy or the site CSP blocks it on the real site, present from here. No order or lead submission; images and links may load.</small></p>
+  </section>
+
+  <section class="card">
+    <h2>6. When it does not work</h2>
+    <table><thead><tr><th>Symptom</th><th>Cause</th><th>What to do</th></tr></thead><tbody>
+      <tr><td>Nothing happens on click</td><td>Company policy blocks javascript: bookmarks, or you are on another site</td><td>Check the domain. If policy blocks execution, use the local rehearsal (5)</td></tr>
+      <tr><td>"Run this bookmark on …" alert</td><td>site.hosts in the spec does not match the current domain (m. subdomain, staging)</td><td>Ask your model to add the host and rebuild. Subdomains are allowed automatically</td></tr>
+      <tr><td>Panel shows but scenes are white boxes</td><td>Site policy may restrict styles or script execution</td><td>Use current Chrome. If the toast says "inline css", switch to the local rehearsal</td></tr>
+      <tr><td>Scene button is dimmed and does not open</td><td>That scene is for another page (its tooltip names it)</td><td>Go to that page and click the bookmark again, or ask your model for page:"any"</td></tr>
+      <tr><td>Toast says "FAIL · target element not found"</td><td>The inline-edit selectors are not on this page (different product page, site deploy changed classes, login state)</td><td>Re-run the site scan on that page → send the diagnostics to your model and ask for new selectors</td></tr>
+      <tr><td>{{product_name}} shows literally</td><td>The reader selector found nothing and there is no vars fallback</td><td>Ask your model to add vars fallbacks (use the scan samples)</td></tr>
+      <tr><td>Demo disappears after a CTA navigates</td><td>Expected: a bookmarklet lives per page load</td><td>Click the bookmark again. SPAs keep it across in-app navigation</td></tr>
+      <tr><td>Reset does not restore an edited element</td><td>The SPA re-rendered it; the original reference is gone</td><td>Reload the page. Mid-demo: Exit, then click again</td></tr>
+      <tr><td>Build says "JSON parse failed"</td><td>Prose, code fences or trailing commas the repair could not fix</td><td>Ask your model: "valid JSON only, no code block, full output"</td></tr>
+      <tr><td>Build rejects cta_url / products</td><td>The Gem used a URL or product that is not in the scan (grounding rule)</td><td>"Copy validation messages" → paste into your model. Scan the missing page if needed</td></tr>
+      <tr><td>Cannot drag the bookmark / URL too long</td><td>Drag fails on some browser/OS combinations</td><td>"Copy code" → edit any bookmark → paste into the URL field</td></tr>
+      <tr><td>Buttons do nothing in a Drive/Slack preview</td><td>Previews do not run scripts</td><td>Download the file and open it in Chrome directly</td></tr>
+      <tr><td>Customer asks "did you hack our site?"</td><td>A scene appeared without the opening line</td><td>Explain that this is a local concept, no real form is submitted, and images or links may make requests</td></tr>
+    </tbody></table>
+  </section>
+</div>
+</main>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const LANG = 'en' === 'en' ? 'en' : 'ko';
+  const shellSrc = $('#shell-src').textContent;
+  const PATTERNS = ['banner', 'popup', 'sticky_bar', 'inline_edit', 'reco_card', 'social_proof', 'tier_progress', 'countdown', 'free_shipping_bar', 'coupon', 'exit_intent', 'lead_form', 'survey', 'spin_to_win', 'custom'];
+  const pristine = '<!doctype html>\n' + document.documentElement.outerHTML;   // captured before any rendering
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const rich = (s) => esc(s).replace(/&lt;br&gt;/g, '<br>');   // allow <br> only
+  let spec = null, code = '';
+  const say = (ko, en) => (LANG === 'en' ? en : ko);
+
+  // The spec's own site.allowed_urls / site.products are not evidence — your model writes them.
+  // Everything the demo will actually use is checked against the scan the consultant pasted in step 1.
+  function validateSource(s, source) {
+    const err = [], warn = [];
+    if (!source) return {err: ['Original scan required. Paste it in step 1.'], warn};
+    const hint = say('이 메시지를 Gem에 전달해 원본 스캔에 맞춰 수정하세요. 필요한 정보가 없으면 해당 페이지를 다시 스캔하세요.',
+                     'Send this message to your model to match the original scan. Re-scan the relevant page if information is missing.');
+    const fail = (path, detail) => err.push(`${path}: ${detail} — ${hint}`);
+    if (!Array.isArray(source.pages) || !source.pages.length || !Array.isArray(source.allowed_urls)) {
+      fail('scan', say('페이지와 allowed_urls가 있는 원본 스캔이 필요합니다', 'An original scan with pages and allowed_urls is required'));
+      return { err, warn };
+    }
+    const urls = new Set(source.allowed_urls);
+    const products = source.pages.flatMap((p) => p.products || []);
+    const selectors = new Set(source.pages.flatMap((p) => Object.values(p.selectors || {}).flat()));
+    const checkUrl = (url, path) => { if (url && !/^https?:\/\//i.test(url)) fail(path, 'Only HTTP(S) URLs are allowed'); if (url && !urls.has(url)) fail(path, say('원본 스캔에 없는 URL', 'URL absent from original scan') + `: ${url}`); };
+    // A scanned selector with trailing classes removed is still grounded (themes add runtime classes like .mdc-ripple-surface)
+    const grounded = (v) => selectors.has(v) || [...selectors].some((x) => x.startsWith(v) && x.slice(v.length).startsWith('.'));
+    const checkSelectors = (values, path) => {
+      if (!Array.isArray(values)) { fail(path, say('셀렉터 배열이 필요합니다', 'Expected an array of selectors')); return; }
+      values.forEach((v) => { if (!grounded(v)) fail(path, say('원본 스캔에 없는 셀렉터', 'Selector absent from original scan') + `: ${v}`); });
+    };
+    // Invisible differences (non-breaking spaces, doubled spaces) are not inventions; a different value is.
+    const norm = (v) => String(v ?? '').replace(/[\u00a0\u2007\u202f]/g, ' ').replace(/\s+/g, ' ').trim();
+    const cut = (v) => { const t = norm(v); return t.length > 60 ? t.slice(0, 60) + '…' : t; };
+    const checkProducts = (items, path) => (items || []).forEach((item, i) => {
+      if (item.img && !/^https?:\/\//i.test(item.img)) fail(path, 'Image URL must use HTTP(S)');
+      checkUrl(item.url, `${path}[${i}].url`);
+      const candidates = products.filter((p) => p.url === item.url);
+      if (!candidates.length) { fail(`${path}[${i}]`, say('원본 스캔에 없는 상품', 'Product absent from original scan')); return; }
+      const same = (p, key) => (key === 'price' ? Number(item[key] ?? NaN) === Number(p[key] ?? NaN) || (item[key] == null && p[key] == null) : norm(item[key]) === norm(p[key]));
+      const keys = ['name', 'price', 'img'];
+      if (candidates.some((p) => keys.every((k) => same(p, k)))) return;
+      const best = candidates[0];
+      const bad = keys.filter((k) => !same(best, k));
+      fail(`${path}[${i}].${bad.join('/')}`, say('스캔한 상품 값과 다릅니다', 'Differs from the scanned product') +
+        ` — ${say('스펙', 'spec')}: ${bad.map((k) => cut(item[k])).join(' / ')} · ${say('스캔', 'scan')}: ${bad.map((k) => cut(best[k])).join(' / ')}`);
+    });
+    (s.scenes || []).forEach((scene,i) => { if (scene.usecase_ref?.url) checkUrl(scene.usecase_ref.url, 'scenes.'+i+'.usecase_ref.url'); });
+    checkUrl(s.site?.entry_url, 'site.entry_url');
+    (s.site?.pages || []).forEach((p, i) => checkUrl(p.url, `site.pages[${i}].url`));
+    const hosts = new Set([source.host, ...(source.hosts || [])]);
+    (s.site?.hosts || []).forEach((h) => { if (!hosts.has(h)) fail('site.hosts', say('원본 스캔과 다른 호스트', 'Host differs from original scan') + `: ${h}`); });
+    checkProducts(s.site?.products, 'site.products');
+    Object.entries(s.site?.readers || {}).forEach(([k, v]) => checkSelectors(v, `site.readers.${k}`));
+    (s.scenes || []).forEach((scene, i) => {
+      const path = `scenes[${i}]`;
+      checkUrl(scene.cta_url, `${path}.cta_url`);
+      checkProducts(scene.products, `${path}.products`);
+      (scene.targets || []).forEach((t, j) => checkSelectors(t.selectors, `${path}.targets[${j}].selectors`));
+      for (const k of ['qty_selectors', 'total_selectors']) {
+        if (scene.bump?.[k] !== undefined) checkSelectors(scene.bump[k], `${path}.bump.${k}`);
+      }
+    });
+    return { err, warn };
+  }
+
+  function validate(s) {
+    const err = [], warn = [];
+    function inspect(value, path = '') {
+      if (typeof value === 'string') {
+        if (/<\/?[a-z][^>]*>/i.test(value) && /<(?!\/?(?:br|b|strong|em|i|span|p|div|small|h[1-3]|ul|ol|li|section|table|thead|tbody|tr|td|th)(?:\s|>|\/))[^>]+>/i.test(value)) err.push(path + ': unsupported HTML tag');
+        if (/\bon[a-z]+\s*=|(?:href|src|srcset|action|style)\s*=/i.test(value)) err.push(path + ': HTML attributes are not supported');
+        if (/(?:url|expression)\s*\(|@import|javascript:|vbscript:/i.test(value)) err.push(path + ': active content is not supported');
+      } else if (Array.isArray(value)) value.forEach((v,i)=>inspect(v,path+'.'+i));
+      else if (value && typeof value === 'object') Object.entries(value).forEach(([k,v])=>inspect(v,path+'.'+k));
+    }
+    inspect(s);
+    const need = (obj, path, keys) => keys.forEach((k) => { if (obj?.[k] === undefined || obj?.[k] === '') err.push(`${path}.${k} missing`); });
+    if (s.version !== 1) err.push('version must be 1');
+    need(s.customer, 'customer', ['name', 'lang', 'brand_color']);
+    if (s.customer?.brand_color && !/^#[0-9a-fA-F]{6}$/.test(s.customer.brand_color)) err.push('customer.brand_color must be #rrggbb');
+    need(s.site, 'site', ['hosts', 'entry_url']);
+    if (!Array.isArray(s.site?.hosts) || !s.site.hosts.length) err.push('site.hosts needs at least one host');
+    need(s.meeting, 'meeting', ['title', 'opening_line', 'closing_line']);
+    const pages = new Set(['any', ...(s.site?.pages || []).map((p) => p.id)]);
+    (s.site?.pages || []).forEach((p, i) => { try { new RegExp(p.match); } catch { err.push(`site.pages[${i}].match is not a valid regex`); } });
+    const allowed = s.site?.allowed_urls ? new Set(s.site.allowed_urls) : null;
+    const catalog = s.site?.products ? new Set(s.site.products.map((p) => p.url)) : null;
+    if (!Array.isArray(s.scenes) || !s.scenes.length) err.push('scenes needs at least one scene');
+    if ((s.scenes || []).length > 15) err.push('scenes: at most 15 (number keys cover 1–9)');
+    const ids = new Set();
+    (s.scenes || []).forEach((sc, i) => {
+      const p = `scenes[${i}]`;
+      need(sc, p, ['id', 'label', 'page', 'pattern', 'visitor', 'talk_line', 'real_impl_note'].concat(sc.pattern === 'custom' ? [] : ['copy']));
+      if (sc.id && ids.has(sc.id)) err.push(`${p}.id duplicate: ${sc.id}`); ids.add(sc.id);
+      if (sc.pattern && !PATTERNS.includes(sc.pattern)) err.push(`${p}.pattern must be one of: ${PATTERNS.join(', ')}`);
+      if (sc.page && !pages.has(sc.page)) err.push(`${p}.page "${sc.page}" is not in site.pages (allowed: ${[...pages].join(', ')})`);
+      if (sc.copy && !sc.copy.title && !['inline_edit', 'custom', 'free_shipping_bar'].includes(sc.pattern)) err.push(`${p}.copy.title missing`);
+      if (sc.pattern === 'free_shipping_bar' && !sc.copy?.title) err.push(`${p} free_shipping_bar needs copy.title (use {{remaining}})`);
+      if (sc.cta_url) {
+        if (!/^https?:\/\//.test(sc.cta_url)) err.push(`${p}.cta_url must be an absolute URL`);
+        else if (allowed && !allowed.has(sc.cta_url)) err.push(`${p}.cta_url is not in site.allowed_urls (site scan): ${sc.cta_url}`);
+        else if (!allowed) { try { const h = new URL(sc.cta_url).hostname; if (!(s.site?.hosts || []).some((x) => h === x || h.endsWith('.' + x))) warn.push(`${p}.cta_url is outside the customer domain: ${sc.cta_url}`); } catch { err.push(`${p}.cta_url malformed`); } }
+      } else if (!sc.cta_scene && sc.copy?.cta && !['lead_form', 'survey', 'spin_to_win'].includes(sc.pattern)) warn.push(`${p} has copy.cta but no cta_url`);
+      if (sc.pattern === 'reco_card') {
+        if (!sc.products?.length) err.push(`${p} reco_card needs products[]`);
+        (sc.products || []).forEach((pr, j) => { need(pr, `${p}.products[${j}]`, ['name', 'price', 'url']); if (catalog && !catalog.has(pr.url)) err.push(`${p}.products[${j}].url is not in site.products (site scan)`); });
+      }
+      if (sc.pattern === 'social_proof' && !sc.stats?.length) err.push(`${p} social_proof needs stats[]`);
+      if (sc.pattern === 'inline_edit' && !sc.targets?.length) err.push(`${p} inline_edit needs targets[]`);
+      if (sc.pattern === 'custom' && !sc.customHtml) err.push(`${p} custom needs customHtml`);
+      if (sc.pattern === 'tier_progress' && !(sc.tier && sc.tier.next_at)) err.push(`${p} tier_progress needs tier{now,next,rate,ytd,next_at}`);
+      if (sc.pattern === 'free_shipping_bar' && !sc.threshold) err.push(`${p} free_shipping_bar needs threshold`);
+      if (sc.pattern === 'survey' && !sc.options?.length) err.push(`${p} survey needs options[]`);
+      if (sc.pattern === 'coupon' && !sc.code) warn.push(`${p} coupon has no code (default WELCOME10)`);
+      if (sc.customHtml && /<script|onerror=|onload=|javascript:/i.test(sc.customHtml)) err.push(`${p}.customHtml must not contain script or event handlers`);
+      const blob = JSON.stringify([sc.copy, sc.card, sc.stats, sc.note, sc.rows, sc.targets]);
+      const known = new Set(['tier_now', 'tier_next', 'tier_gain', 'tier_ytd', 'tier_next_at', 'tier_rate', 'order_total', 'remaining', 'threshold', 'current_total', ...Object.keys(s.vars || {}), ...Object.keys(s.site?.readers || {})]);
+      for (const m of blob.matchAll(/\{\{(\w+)\}\}/g)) { if (!known.has(m[1])) warn.push(`${p} uses {{${m[1]}}} which is in neither vars nor site.readers — it would show literally`); }
+      for (const k of Object.keys(s.site?.readers || {})) { if (blob.includes('{{' + k + '}}') && (s.vars || {})[k] === undefined) warn.push(`${p} {{${k}}} has a reader but no vars fallback — shows literally if the element is not found`); }
+      if (/\d+(\.\d+)?\s*(%|％|배|x|X)\b/.test(blob)) warn.push(`${p} copy contains something that looks like a performance number (digits + %/x). Confirm it is verified site information`);
+    });
+    if (!allowed) warn.push('site.allowed_urls missing — spec written without a site scan. Verify every cta_url exists yourself');
+    return { err, warn };
+  }
+
+  function bookmarklet(s) {
+    const js = shellSrc.replace('__SPEC__', () => JSON.stringify(s));   // function form: '$&' etc. in the spec must not be treated as replacement patterns
+    return { js, href: 'javascript:' + encodeURIComponent(js) };
+  }
+
+  function render(s) {
+    document.documentElement.style.setProperty('--brand', s.customer.brand_color);
+    $('#hdr-brand').textContent = `${s.customer.name} × DEMO KIT · DEMO KIT`;
+    $('#k-sub').textContent = s.meeting.subtitle || '';
+    $('#k-title').innerHTML = rich(s.meeting.title);
+    $('#k-lead').textContent = `One bookmark, ${s.scenes.length} scenes. No visitor options or input — just clicks.`;
+    const bm = bookmarklet(s); code = bm.js;
+    $('#bm').href = bm.href; $('#bm').textContent = `${s.customer.name} · Demo`;
+    $('#code').value = bm.href; $('#bm-size').textContent = `${(bm.href.length / 1024).toFixed(1)} KB`;
+    $('#k-entry').href = s.site.entry_url;
+    const pageUrl = (id) => (s.site.pages || []).find((p) => p.id === id)?.url;
+    $('#k-order').innerHTML = s.scenes.map((sc) => {
+      const u = pageUrl(sc.page);
+      return `<tr><td>${u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(sc.page)} ↗</a>` : esc(sc.page)}</td><td><b>${esc(sc.label)}</b><br><span class="pill">${esc(sc.pattern)}</span></td><td>${esc(sc.visitor)}</td><td>${rich(sc.copy?.title || '')}</td><td>${sc.cta_url ? `<a href="${esc(sc.cta_url)}" target="_blank" rel="noopener">${esc(sc.copy?.cta || sc.cta_url)}</a>` : '—'}</td></tr>`;
+    }).join('');
+    $('#k-open').textContent = 'Opening: “' + s.meeting.opening_line + '”';
+    $('#k-lines').innerHTML = s.scenes.map((sc) => `<li><b>${esc(sc.label)}</b> “${esc(sc.talk_line)}”</li>`).join('');
+    $('#k-close').textContent = 'Closing: “' + s.meeting.closing_line + '”';
+    $('#k-objections').innerHTML = (s.meeting.objections || []).length ? `<details><summary>Likely questions</summary><table>${s.meeting.objections.map((o) => `<tr><td><b>Q.</b> ${esc(o.q)}</td><td>${esc(o.a)}</td></tr>`).join('')}</table></details>` : '';
+    $('#k-impl').innerHTML = s.scenes.map((sc) => `<tr><td>${esc(sc.label)}</td><td>${esc(sc.real_impl_note)}</td><td>${sc.usecase_ref ? (sc.usecase_ref.url ? `<a href="${esc(sc.usecase_ref.url)}" target="_blank" rel="noopener">${esc(sc.usecase_ref.title || sc.usecase_ref.url)}</a>` : esc(sc.usecase_ref.title || '')) + (sc.usecase_ref.reframe_note ? `<br><small>${esc(sc.usecase_ref.reframe_note)}</small>` : '') : '—'}</td></tr>`).join('');
+    $('#k-prep').innerHTML = (s.meeting.prep_checklist || []).map((x) => `<li>${esc(x)}</li>`).join('') || '<li>Run the bookmark once on the real site in your own Chrome before the meeting</li>';
+    $('#page-sel').innerHTML = ['any', ...(s.site.pages || []).map((p) => p.id)].map((id) => `<option>${esc(id)}</option>`).join('');
+    $('#kit').hidden = false;
+  }
+
+  function showMsgs(v) {
+    const m = $('#msgs');
+    m.innerHTML = v.err.map((e) => `<div class="err">✕ ${esc(e)}</div>`).join('') + v.warn.map((w) => `<div class="warn">△ ${esc(w)}</div>`).join('') + (v.err.length ? '' : '<div class="ok">✓ Spec validated</div>');
+    $('#copy-msgs').hidden = !(v.err.length || v.warn.length);
+    $('#copy-msgs').onclick = async () => {
+      const text = [`Please fix the spec JSON according to these validation messages (${v.err.length} errors, ${v.warn.length} warnings) and output the complete JSON again. Explain each change in one line.`, ...v.err.map((e) => 'Error: ' + e), ...v.warn.map((w) => 'Warning: ' + w)].join('\n');
+      const box = $('#msgs-copy'); box.hidden = false; box.value = text;   // show exactly what was copied
+      try { await navigator.clipboard.writeText(text); $('#status').textContent = `Copied (${text.split('\n').length} lines). Paste into your model chat.`; }
+      catch { box.focus(); box.select(); let ok = false; try { ok = document.execCommand('copy'); } catch { ok = false; } $('#status').textContent = ok ? 'Copied.' : 'Select the box below and press ⌘C / Ctrl+C.'; }
+    };
+  }
+
+  function repair(t) {
+    let x = String(t).trim();
+    x = x.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');            // code fences
+    const a = x.indexOf('{'), b = x.lastIndexOf('}'); if (a > 0 || b < x.length - 1) x = x.slice(a, b + 1);   // prose around the object
+    x = x.replace(/[\u201c\u201d]/g, '"').replace(/[\u2018\u2019]/g, "'");   // smart quotes
+    x = x.replace(/,\s*([}\]])/g, '$1');                                        // trailing commas
+    return x;
+  }
+  function kindOf(o) {
+    if (o && typeof o === 'object' && (o.scan || o.recon) && Array.isArray(o.pages) && !o.scenes) return 'recon';
+    if (o && typeof o === 'object' && Array.isArray(o.scenes)) return 'spec';
+    return 'unknown';
+  }
+  function reconSummary(r) {
+    const pages = (r.pages || []).map((p) => `${p.page_type} (${p.products.length} products, ${p.nav.length} links${p.csp?.demo_shell && p.csp.demo_shell !== 'ok' ? ', ⚠ csp' : ''})`).join(' · ');
+    return `${r.host} · ${r.render} · ${r.lang || '?'} · brand ${r.brand_color_suggested || (r.brand_colors || [])[0] || '?'} · pages: ${pages || 'none'} · allowed_urls ${(r.allowed_urls || []).length}`;
+  }
+  let recon = null;
+  const setStep = (n) => ['#st1', '#st2', '#st3'].forEach((id, i) => { const el = $(id); el.className = 'step' + (i + 1 < n ? ' done' : i + 1 === n ? ' on' : ''); });
+  function showRecon(r) {
+    recon = r;
+    try { sessionStorage.setItem('__kit_recon', JSON.stringify(r)); } catch { /* ignore */ }
+    $('#recon-sum').innerHTML = '<div class="ok">✓ ' + esc(reconSummary(r)) + '</div>';
+    const g = $('#gem-req'); g.hidden = false;
+    const pageTypes = (r.pages || []).map((p) => p.page_type);
+    const KO = { home: 'home', pdp: 'product page', plp: 'category', cart: 'cart', checkout: 'checkout', account: 'account', content: 'content', other: 'other' };
+    const IND_KO = { 'Fashion & Apparel': '패션·의류 이커머스', 'Beauty & Cosmetics': '뷰티·화장품', 'Electronics': '전자·가전', 'Grocery & Food Delivery': '식품·마트·배달', 'Marketplace / General Retail': '종합몰·마켓플레이스', 'Travel & Hospitality': '여행·항공·숙박', 'Banking & Insurance': '금융·보험', 'Telecom': '통신', 'Automotive & Mobility': '자동차·모빌리티', 'Media & Subscriptions': '미디어·콘텐츠·구독', 'Education': '교육', 'Healthcare': '헬스케어·의료', 'Nonprofit & Donations': '비영리·후원', 'Gaming, Entertainment & Ticketing': '게임·엔터·티켓' };
+    const indLabel = (n) => LANG === 'en' ? n : (IND_KO[n] || n);
+    const DEF = {   // industry -> [pain points, visitors]
+      'Fashion & Apparel': ['returning-visitor personalization, cart abandonment recovery, member retention', 'returning guest / member with a cart / VIP member'],
+      'Beauty & Cosmetics': ['repeat purchase, cart abandonment, new-member conversion', 'returning guest / member due for replenishment / visitor with a cart'],
+      'Electronics': ['high-consideration conversion, comparison drop-off recovery, accessory cross-sell', 'visitor comparing products / member with a cart / post-purchase customer'],
+      'Grocery & Food Delivery': ['reorder nudges, basket size, free-delivery threshold', 'returning member / member with a cart / lapsed customer'],
+      'Marketplace / General Retail': ['returning-visitor personalization, cart abandonment, category browse conversion', 'returning guest / member with a cart / browse abandoner'],
+      'Travel & Hospitality': ['search-to-booking drop-off recovery, ancillaries, loyalty tiers', 'searched but not booked / member mid-booking / top-tier member'],
+      'Banking & Insurance': ['lead capture, application completion, cross-sell to existing customers', 'guest viewing a product / applicant who did not finish / logged-in member'],
+      'Telecom': ['plan upgrades, add-on sales, churn defense', 'visitor comparing plans / logged-in subscriber / contract ending soon'],
+      'Automotive & Mobility': ['model discovery, consultation and test-drive leads, owner care', 'visitor who viewed a model / consultation requester / existing owner'],
+      'Media & Subscriptions': ['subscription conversion, churn prevention, content personalization', 'non-subscriber / subscription expiring soon / returning reader'],
+      'Education': ['enrollment conversion, learning continuity, re-enrollment', 'course browser / active learner / lapsed learner'],
+      'Healthcare': ['appointment conversion, return visits, guidance', 'reader of care information / unfinished booking / existing patient'],
+      'Nonprofit & Donations': ['interest-based content, unfinished donation recovery, donor relationship', 'returning visitor who read a campaign / unfinished donor / existing monthly donor'],
+      'Gaming, Entertainment & Ticketing': ['ticket and purchase conversion, return visits, member benefits', 'event viewer / unfinished booking / member'],
+    };
+    const d = DEF[r.industry_guess] || ['returning-visitor personalization, conversion drop-off recovery, member retention', 'returning guest / unfinished conversion / logged-in member'];
+    const fill = (id, v) => { const el = $(id); if (!el.value.trim() || el.dataset.auto === '1') { el.value = v; el.dataset.auto = '1'; } };
+    fill('#b-customer', r.site_name || r.host.replace(/^www\./, ''));
+    fill('#b-industry', r.industry_guess ? `${indLabel(r.industry_guess)}${(r.industry_candidates || []).length > 1 ? (LANG === 'en' ? ' (alternatives: ' : ' (후보: ') + r.industry_candidates.slice(1).map((x) => indLabel(x.replace(/ \(\d+\)/, ''))).join(', ') + ')' : ''}` : '');
+    fill('#b-purpose', '3-minute demo in the first meeting');
+    fill('#b-pain', d[0]);
+    fill('#b-visitors', d[1]);
+    const pg = [...new Set(pageTypes)].filter((t) => t !== 'other').map((t) => KO[t] || t);
+    fill('#b-pages', pg.length > 1 ? pg.join(' + ') + ' (scanned pages)' : 'home only');
+    fill('#b-notes', [r.tags?.some((t) => /braze|exponea|moengage|clevertap|salesforce/.test(t)) ? 'competitor tags detected (' + r.tags.filter((t) => /braze|exponea|moengage|clevertap|salesforce/.test(t)).join(', ') + ') — never mention in copy' : '', r.render === 'spa' ? 'SPA — single-page demo recommended' : ''].filter(Boolean).join('; '));
+    document.querySelectorAll('#gem-req input').forEach((el) => el.addEventListener('input', () => { el.dataset.auto = '0'; }));
+    $('#recon-status').textContent = '';
+    setStep(1);
+    $('#gem-req-copy').onclick = async () => {
+      const f = (id) => $(id).value.trim();
+      const text = [`Customer: ${f('#b-customer')}, industry: ${f('#b-industry')}, site language: ${r.lang || 'en'}`,
+        `Purpose: ${f('#b-purpose')}`, `What the customer cares about: ${f('#b-pain')}`, `Visitors to show: ${f('#b-visitors')}`,
+        `Pages: ${f('#b-pages')}`, f('#b-notes') ? `Notes: ${f('#b-notes')}` : '', '--- site scan JSON ---', JSON.stringify(r)].filter(Boolean).join('\n');
+      const box = $('#req-copy'); box.hidden = false; box.value = text;
+      try { await navigator.clipboard.writeText(text); $('#req-status').textContent = `Copied (${(text.length / 1024).toFixed(0)} KB). Paste into your model, then put the returned spec into step 2.`; }
+      catch { box.focus(); box.select(); $('#req-status').textContent = 'Select the box below and press ⌘C / Ctrl+C.'; }
+      setStep(2); $('#spec').focus();
+    };
+  }
+  function readRecon(text) {
+    let r;
+    try { r = JSON.parse(repair(text)); } catch (e) { $('#recon-sum').innerHTML = '<div class="err">✕ JSON parse failed: ' + esc(e.message) + '</div>'; return false; }
+    const kind = kindOf(r);
+    if (kind === 'spec') { $('#spec').value = text; $('#recon').value = ''; $('#recon-sum').innerHTML = '<div class="warn">△ This is a spec JSON, so it was moved to step 2.</div>'; return build(text); }
+    if (kind !== 'recon') { $('#recon-sum').innerHTML = '<div class="err">✕ Not a site scan JSON. Paste the output of "Copy JSON" from the scan panel.</div>'; return false; }
+    showRecon(r); return true;
+  }
+  function groundWithRecon(s) {
+    if (!recon) return [];
+    const notes = [];
+    if (!s.site) s.site = {};
+    if (recon.allowed_urls?.length) { s.site.allowed_urls = recon.allowed_urls; notes.push('site.allowed_urls replaced with the step-1 scan (the spec’s own list is not evidence)'); }
+    const prods = (recon.pages || []).flatMap((p) => p.products || []).filter((x) => x.url && x.price != null);
+    if (!s.site.products?.length && prods.length) { s.site.products = prods; notes.push(`site.products filled from the step-1 scan (${prods.length})`); }
+    if (!s.site.hosts?.length && recon.hosts?.length) { s.site.hosts = recon.hosts; notes.push('site.hosts filled from the scan'); }
+    return notes;
+  }
+  function build(fromText) {
+    $('#kit').hidden = true; $('#save').hidden = true; spec = null; code = '';
+    let s;
+    try { s = JSON.parse(repair(fromText)); } catch (e) { showMsgs({ err: ['JSON parse failed: ' + e.message + ' — ask your model for "valid JSON only, no code block"'], warn: [] }); $('#kit').hidden = true; return false; }
+    const kind = kindOf(s);
+    if (kind === 'recon') { $('#recon').value = fromText; $('#spec').value = ''; showMsgs({ err: [], warn: ['This is a site scan JSON, so it was moved to step 1. Check the brief and create your model request.'] }); $('#kit').hidden = true; showRecon(s); return false; }
+    if (kind === 'unknown') { showMsgs({ err: ['Not a spec JSON (no scenes array). Paste the complete JSON from your model.'], warn: [] }); $('#kit').hidden = true; return false; }
+    try { recon = $('#recon').value.trim() ? JSON.parse(repair($('#recon').value)) : recon; }
+    catch { showMsgs({ err: [say('1단계 스캔을 읽을 수 없습니다 — 사이트 스캔을 다시 붙여넣으세요.', 'Invalid scan in step 1 — paste a fresh site scan.')], warn: [] }); return false; }
+    let v;
+    try {
+      const src = validateSource(s, recon);
+      if (src.err.length) { showMsgs(src); setStep(2); return false; }
+      const notes = groundWithRecon(s);
+      v = validate(s); v.warn = [...src.warn, ...notes.map((n) => 'ℹ ' + n), ...v.warn];
+    } catch {
+      showMsgs({ err: [say('스캔 또는 스펙 구조가 잘못됐습니다 — Gem에 스키마에 맞는 전체 JSON을 요청하세요.', 'Invalid scan or spec structure — ask your model for complete JSON matching the schema.')], warn: [] }); return false;
+    }
+    showMsgs(v);
+    if (v.err.length) { setStep(2); return false; }
+    spec = s; render(s); $('#save').hidden = false; $('#status').textContent = '';
+    setStep(3); $('#step1').classList.add('collapsed');
+    return true;
+  }
+
+  $('#build').onclick = () => build($('#spec').value);
+  $('#read-recon').onclick = () => readRecon($('#recon').value);
+  $('#recon').addEventListener('paste', () => setTimeout(() => readRecon($('#recon').value), 50));   // paste = read, no extra click
+  $('#step1').addEventListener('click', (e) => { if ($('#step1').classList.contains('collapsed') && !e.target.closest('button,input,textarea')) { $('#step1').classList.remove('collapsed'); } });
+  try {
+    const standalone = $('#embedded-spec').textContent.trim() !== '__SPEC__';
+    const saved = standalone ? $('#embedded-scan').textContent : sessionStorage.getItem('__kit_recon');
+    const parsed = saved && JSON.parse(saved);
+    if (parsed) { $('#recon').value = saved; showRecon(parsed); }
+  } catch { /* a corrupt stored scan is simply not used */ }
+  $('#copy-console').onclick = async () => { try { await navigator.clipboard.writeText(code); $('#status').textContent = 'Console code copied. Paste it into the DevTools console on the customer site.'; } catch { $('#code').closest('details').open = true; $('#code').value = code; $('#code').select(); } };
+  $('#copy-code').onclick = async () => { try { await navigator.clipboard.writeText($('#code').value); $('#status').textContent = 'Copied. Paste into the bookmark URL field.'; } catch { $('#code').closest('details').open = true; $('#code').select(); } };
+  $('#save').onclick = () => {
+    if (!spec) return;
+    const html = pristine.replace(/<script id="embedded-(spec|scan)" type="application\/json">[\s\S]*?<\/script>/g,
+      (_, kind) => '<script id="embedded-' + kind + '" type="application/json">' + JSON.stringify(kind === 'spec' ? spec : recon).replace(/</g, '\\u003c') + '<' + '/script>');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    a.download = `${spec.customer.name}_DEMO_KIT.html`.replace(/[\\/:*?"<>|\s]+/g, '_'); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
+  $('#rehearse').onclick = () => { document.body.dataset.demoPage = $('#page-sel').value; (0, eval)(code); };
+  $('#hdr-ver').textContent = (shellSrc.match(/VER = '([^']+)'/) || [])[1] || '';
+
+  const embedded = $('#embedded-spec').textContent.trim();
+  if (embedded && embedded !== '__SPEC__') {
+    $('#spec').value = embedded;
+    if (build(embedded)) { $('#step1').hidden = true; $('.steps').hidden = true; $('#step2').classList.add('muted'); $('#step2').querySelector('h2').textContent = 'Spec (edit and build to update)'; }
+  }
+})();
+</script>
+</html>

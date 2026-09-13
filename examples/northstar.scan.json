@@ -1,0 +1,37 @@
+{
+  "scan": "synthetic-example-1",
+  "site_name": "Northstar",
+  "host": "127.0.0.1",
+  "hosts": [
+    "127.0.0.1"
+  ],
+  "entry_url": "http://127.0.0.1:8080/dist/PLAYGROUND.html",
+  "lang": "en",
+  "currency": "USD",
+  "render": "ssr",
+  "industry_guess": "Fashion & Apparel",
+  "brand_colors": [
+    "#225D50"
+  ],
+  "tags": [],
+  "allowed_urls": [
+    "http://127.0.0.1:8080/dist/PLAYGROUND.html"
+  ],
+  "pages": [
+    {
+      "url": "http://127.0.0.1:8080/dist/PLAYGROUND.html",
+      "page_type": "home",
+      "title": "Northstar \u00b7 Fictional store",
+      "products": [],
+      "nav": [],
+      "selectors": {
+        "hero_heading": [
+          "#hero-title"
+        ]
+      },
+      "samples": {
+        "hero_heading": "Good days start outside."
+      }
+    }
+  ]
+}

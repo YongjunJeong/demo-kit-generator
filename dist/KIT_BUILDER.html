@@ -1,0 +1,902 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demo Kit Builder</title>
+<style>
+[hidden]{display:none!important}
+*{box-sizing:border-box}body{margin:0;background:#f3f4f6;color:#19212c;font:16px/1.7 -apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif}
+header{background:#fff;padding:18px 6vw;border-bottom:1px solid #ddd;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+header span{color:var(--brand,#111)}header small{font-weight:400;color:#777}
+main{max-width:960px;margin:40px auto;padding:0 24px 70px}
+h1{font-size:40px;line-height:1.2;letter-spacing:-1.5px;margin:0 0 8px}h2{font-size:21px;margin:0 0 10px}p{color:#606975;margin:6px 0}
+.card{padding:26px;background:#fff;border:1px solid #e0e3e7;border-radius:15px;margin:20px 0}
+.bookmark,button{display:inline-block;background:var(--brand,#111);color:#fff;border:0;border-radius:9px;padding:13px 20px;font:700 15px/1.5 inherit;text-decoration:none;cursor:pointer}
+button.alt{background:#222c39}button.ghost{background:#e8eaee;color:#222}
+a{color:var(--brand,#111)}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:12px 8px;border-bottom:1px solid #eee;vertical-align:top}th{color:#555;font-weight:600;font-size:12px;letter-spacing:.5px}
+small{color:#66717f}textarea{width:100%;min-height:120px;font:13px/1.5 ui-monospace,Menlo,monospace;border:1px solid #cfd4db;border-radius:8px;padding:10px}
+#spec{min-height:260px}input{width:100%;border:1px solid #cfd4db;border-radius:8px;padding:9px 10px;font:14px/1.4 inherit}details{margin-top:14px}summary{cursor:pointer;color:#444}
+blockquote{margin:10px 0;border-left:3px solid var(--brand,#111);padding:4px 16px}
+.msgs{margin:12px 0;font-size:14px}.msgs .err{color:#b3261e}.msgs .warn{color:#8a5a00}.msgs .ok{color:#1b6e3a}.msgs div{padding:3px 0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.pill{display:inline-block;background:#eef1f5;border-radius:99px;padding:2px 10px;font-size:12px;color:#444}
+#status{font-size:13px;color:#555;margin-left:8px}
+.muted{opacity:.55}
+.steps{display:flex;gap:8px;margin:0 0 6px}.step{background:#e8eaee;color:#555;border-radius:99px;padding:4px 14px;font-size:13px}.step.on{background:var(--brand,#1a1f27);color:#fff}.step.done{background:#1b6e3a;color:#fff}
+#step1.collapsed>*:not(small):not(h2){display:none}#step1.collapsed h2{margin:0}#step1.collapsed{cursor:pointer;opacity:.75}
+@media(max-width:600px){h1{font-size:30px}td,th{font-size:13px;padding:10px 4px}main{padding:0 14px 50px}}
+</style>
+<script id="shell-src" type="text/plain">
+(() => {
+  'use strict';
+  const SPEC = __SPEC__;
+  const VER = 'shell 0.4';
+  const KEY = '__demokitDemoKit';
+
+  const site = SPEC.site || {};
+  const cust = SPEC.customer || {};
+  const hosts = site.hosts || [];
+  const here = location.hostname;
+  const local = location.protocol === 'file:' || here === 'localhost' || here === '127.0.0.1';
+  const onSite = hosts.some((h) => here === h || here.endsWith('.' + h));
+  if (!local && !onSite) {
+    alert((SPEC.ui_lang === 'en' ? 'Run this bookmark on: ' : '이 북마크는 여기서 실행하세요: ') + (site.entry_url || hosts[0] || ''));
+    return;
+  }
+  if (!document.body) return;
+  window[KEY]?.destroy();
+
+  // Trusted Types (sites with require-trusted-types-for 'script'): route every innerHTML through a policy
+  let TT = null;
+  try { if (window.trustedTypes?.createPolicy) TT = window.trustedTypes.createPolicy('demokit-demo-kit', { createHTML: (x) => x }); } catch { TT = null; }
+  const setHTML = (el, html) => { el.innerHTML = TT ? TT.createHTML(html) : html; };
+  // CSP style-src may block inline style attributes even inside a shadow root; data-style is applied through CSSOM instead
+  const applyStyles = (scope) => scope.querySelectorAll('[data-style]').forEach((el) => { el.style.cssText += ';' + el.dataset.style; });
+
+  const T = SPEC.ui_lang === 'en' ? {
+    demo: 'DEMO', reset: 'Reset', exit: 'Exit ×', diag: 'Copy diagnostics', later: 'Maybe later', add: '+ Add', added: 'Added ✓', copy: 'Copy', copied: 'Copied ✓',
+    submit: 'Submit', thanks: 'Thank you!', spin: 'Spin', view: 'View', armed: 'Armed — move the mouse out of the top of the window',
+    wrongPage: (p) => `This scene is for the "${p}" page. Navigate there and click the bookmark again.`,
+    ok: 'OK', fail: 'FAIL', noTarget: 'target element not found', reset_done: 'Reset — page restored',
+    foot: 'CONCEPT DEMO · fictional visitor conditions · no form submission; images and links may load',
+  } : {
+    demo: 'DEMO', reset: '초기화', exit: '종료 ×', diag: '진단 복사', later: '지금은 둘러볼게요', add: '+ 담기', added: '담김 ✓', copy: '복사', copied: '복사됨 ✓',
+    submit: '보내기', thanks: '감사합니다!', spin: '돌리기', view: '보기', armed: '대기 중 — 마우스를 창 위쪽 밖으로 이동하면 표시됩니다',
+    wrongPage: (p) => `이 장면은 "${p}" 페이지용입니다. 그 페이지로 이동한 뒤 북마크를 다시 클릭하세요.`,
+    ok: 'OK', fail: 'FAIL', noTarget: '대상 요소를 찾지 못함', reset_done: '초기화 — 페이지 원상 복구',
+    foot: 'CONCEPT DEMO · no form submission; images and links may load',
+  };
+
+  // ── page detection (site.pages: [{id, match}] regex on path+search)
+  function detectPage() {
+    if (document.body.dataset.demoPage) return document.body.dataset.demoPage;
+    const target = location.pathname + location.search;
+    for (const p of site.pages || []) {
+      try { if (new RegExp(p.match).test(target)) return p.id; } catch { /* bad regex in spec */ }
+    }
+    return 'other';
+  }
+  let page = detectPage();
+
+  // ── helpers
+  const SAFE_TAGS = new Set('BR B STRONG EM I SPAN P DIV SMALL H1 H2 H3 UL OL LI SECTION TABLE THEAD TBODY TR TD TH'.split(' '));
+  function clean(html) {
+    if (html == null) return '';
+    const tpl = document.createElement('template');
+    setHTML(tpl, String(html));
+    tpl.content.querySelectorAll('*').forEach(el => {
+      if (!SAFE_TAGS.has(el.tagName)) { el.remove(); return; }
+      for (const a of [...el.attributes]) el.removeAttribute(a.name);
+    });
+    return tpl.innerHTML;
+  }
+  const text = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const cur = site.currency || 'KRW';
+  const money = (n) => {
+    if (typeof n !== 'number') return text(n);
+    try { return new Intl.NumberFormat(cust.lang || 'ko', { style: 'currency', currency: cur, maximumFractionDigits: cur === 'KRW' || cur === 'JPY' ? 0 : 2 }).format(n); }
+    catch { return n.toLocaleString(); }
+  };
+  const fmt = (n) => Number(n).toLocaleString(cust.lang || 'ko');
+  function pick(selectors) {
+    for (const sel of selectors || []) { try { const el = document.querySelector(sel); if (el) return el; } catch { /* bad selector */ } }
+    return null;
+  }
+
+  // ── context variables: read from the page (site.readers) with spec.vars fallbacks; used as {{name}} in copy
+  const vars = Object.assign({}, SPEC.vars || {});
+  for (const [k, sels] of Object.entries(site.readers || {})) {
+    const el = pick(sels);
+    if (!el) continue;
+    const raw = el.textContent.trim().split('\n')[0].trim().slice(0, 60);
+    if (/total|price|amount/.test(k)) { const m = raw.replace(/,/g, '').match(/\d+(\.\d+)?/); if (m) vars[k] = Number(m[0]); }
+    else vars[k] = raw;
+  }
+  const fill = (s) => String(s ?? '').replace(/\{\{(\w+)\}\}/g, (m, k) => vars[k] === undefined ? m : (typeof vars[k] === 'number' && /total|price|amount/.test(k) ? money(vars[k]) : vars[k]));
+  const num = (k, fallback) => typeof vars[k] === 'number' ? vars[k] : (Number(fallback) || 0);
+  const h = (s) => clean(fill(s));
+
+  // ── theme
+  const brand = cust.brand_color || '#111111';
+  const ink = cust.ink_color || '#1d2430';
+  const accent = cust.accent_color || brand;
+  const radius = { sharp: '4px', soft: '12px', round: '20px' }[cust.radius] || '16px';
+  const font = cust.font || "-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic','Hiragino Sans','Noto Sans JP',sans-serif";
+  const previous = document.activeElement;
+  const host = document.createElement('div');
+  host.id = 'demokit-demo-kit';
+  host.style.cssText = 'all:initial!important;position:fixed!important;inset:0!important;z-index:2147483647!important;pointer-events:none!important';
+  const root = host.attachShadow({ mode: 'open' });
+  const CSS = `
+  :host{all:initial;color-scheme:light}*{box-sizing:border-box}[hidden]{display:none!important}
+  .bar,.scene,.toast,.stick{pointer-events:auto;font:15px/1.6 ${font};color:${ink}}
+  button,a,input{font:inherit}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #3478f6;outline-offset:3px}
+  .bar{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;width:max-content;max-width:calc(100vw - 24px);padding:11px 14px;background:#1a1f27;color:#fff;border-radius:14px;box-shadow:0 10px 35px #0005}
+  .brand{font-size:11px;letter-spacing:1px;margin-right:6px;opacity:.85}
+  .bar button{background:#2c3340;color:#fff;border:1px solid #4a5364;border-radius:8px;padding:8px 12px;font-size:13px}
+  .bar button[aria-pressed=true]{background:${brand};border-color:${brand}}.bar button.off{opacity:.45}.bar button.util{background:transparent;border-color:#3a4252;color:#cfd5df}
+  .backdrop{position:fixed;inset:0;background:#10131a75;pointer-events:auto}
+  .scene{position:fixed;right:24px;bottom:105px;width:400px;max-width:calc(100vw - 32px);max-height:calc(100dvh - 130px);overflow:auto;background:#fff;border:1px solid #e9e9e9;border-radius:${radius};box-shadow:0 18px 60px #0004;transform:translateY(20px);opacity:0;transition:transform .4s cubic-bezier(.2,.8,.2,1),opacity .4s}
+  .scene.in{transform:none;opacity:1}
+  .scene.pos-bl{right:auto;left:24px}.scene.pos-tr{bottom:auto;top:76px;right:20px;transform:translateY(-20px)}.scene.pos-tr.in{transform:none}
+  .scene.pos-tc{bottom:auto;top:76px;right:auto;left:50%;transform:translate(-50%,-20px)}.scene.pos-tc.in{transform:translate(-50%,0)}
+  .scene.wide{left:50%;right:auto;transform:translate(-50%,20px);width:1000px;border-top:5px solid ${brand}}.scene.wide.in{transform:translate(-50%,0)}
+  .wide .body{display:grid;grid-template-columns:1.5fr 1fr;gap:30px;padding:30px 36px}.wide .head{border:0;padding-bottom:0}
+  .scene.sheet{left:16px;right:16px;bottom:100px;width:auto;max-width:none}.sheet .row{display:flex;gap:10px}.sheet .row .item{flex:1;margin:0}
+  .scene.popup{left:50%;top:45%;right:auto;bottom:auto;transform:translate(-50%,-46%);width:520px;text-align:center;border:0}.scene.popup.in{transform:translate(-50%,-50%)}
+  .popup .body{padding:22px 38px}.popup .head{border:0}.popup .cta{border-radius:30px}
+  .scene.dark{background:#1f2a2a;color:#fff;border:0}.dark .head{border-color:#ffffff22}.dark .head b,.dark .close,.dark .tag{color:#efce99}.dark p,.dark .later,.dark .note,.dark .sub{color:#dbe5e1}
+  .dark .card{background:transparent;border:0;border-top:1px solid #ffffff33;padding:16px 0;margin:20px 0 8px}.dark .card b{color:#efce99}.dark .card span{color:#cfdcd7}.dark .cta{background:#f3d3a1;color:#1f2a2a}.dark .foot{background:#172020;color:#c6d8d2}
+  .head{padding:13px 22px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;letter-spacing:1px}.head b{color:${brand}}
+  .head.hd-brand{background:linear-gradient(90deg,${brand},${accent});color:#fff;border:0;font-size:13px;letter-spacing:.3px}.hd-brand b,.hd-brand .close{color:#fff}.head .ico{font-size:16px}
+  .close{border:0;background:none;font-size:24px;color:#666;line-height:1;margin-left:auto}
+  .body{padding:22px 24px}.tag{color:${brand};font-size:11px;font-weight:800;letter-spacing:1.4px}
+  h1{font-size:24px;line-height:1.35;letter-spacing:-.8px;margin:10px 0 8px}h1:focus{outline:none}.wide h1,.popup h1{font-size:30px}
+  p{font-size:14px;color:#5f6670;margin:6px 0 14px}.sub{font-size:12px;color:#777;margin:4px 0 10px}
+  .card{background:#f6f4f1;border-radius:12px;padding:18px;margin:16px 0;border-left:4px solid ${brand}}.card b{display:block;font-size:19px;letter-spacing:-.5px}.card span{display:block;font-size:13px;color:#6f6a64;margin-top:5px}.card small{display:block;font-size:11px;color:#8a8580;letter-spacing:1px}
+  .rows{margin:14px 0;border-top:1px solid #e5e8eb;text-align:left}.row{display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid #e5e8eb;padding:9px 0;font-size:13px}.row span{color:#727986}.row b{text-align:right}
+  .flow{display:grid;gap:8px;margin:16px 0;text-align:left}.node{border:1px solid #dfe4e9;border-radius:10px;padding:10px 14px}.node small{color:${brand};font-size:10px;letter-spacing:1px;display:block}.node b{display:block}.arrow{text-align:center;color:#8a8f98;font-size:12px}.ok-line{background:${brand}12;border:1px solid ${brand}44;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px}
+  .cta{display:block;background:${brand};color:#fff;text-align:center;text-decoration:none;border-radius:10px;padding:13px;font-weight:700;border:0;width:100%;cursor:pointer}
+  .later{display:block;width:100%;border:0;background:none;color:#666;padding:10px;font-size:13px}
+  .foot{background:#f5f5f5;padding:10px 22px;font-size:10px;color:#757575}.note{font-size:10px;color:#8a8a8a;margin-top:12px}
+  .symbol{width:56px;height:56px;border-radius:50%;background:${brand}18;color:${brand};display:grid;place-items:center;font-size:30px;margin:0 auto 14px}
+  .items{margin:12px 0}.item{display:flex;gap:12px;align-items:center;padding:10px;border:1px solid #eee;border-radius:12px;margin-bottom:8px;text-align:left}
+  .item img{width:64px;height:64px;object-fit:cover;border-radius:8px;background:#f2f2f2;flex:none}.item .n{font-size:13px;font-weight:600;line-height:1.3}.item .t{font-size:11px;color:${brand};margin-top:2px}.item .p{font-size:13px;margin-top:2px}
+  .item a,.item button.add{margin-left:auto;background:${ink};color:#fff;text-decoration:none;border:0;border-radius:99px;padding:8px 12px;font-size:12px;white-space:nowrap;cursor:pointer}.item button.add.ok{background:#1f9d55}
+  .stats{display:flex;gap:10px;margin:12px 0}.stat{flex:1;background:${brand}10;border:1px solid ${brand}33;border-radius:10px;padding:10px 12px}.stat em{font-style:normal;font-size:26px;font-weight:800;color:${brand};line-height:1;display:block}.stat span{font-size:11px;color:#666}
+  .pill{display:inline-block;background:${brand};color:#fff;font-size:11.5px;font-weight:700;border-radius:99px;padding:4px 12px;margin:4px 0}
+  .stick{position:fixed;top:0;left:0;right:0;display:flex;gap:12px;align-items:center;justify-content:center;padding:10px 44px 10px 18px;background:linear-gradient(90deg,${brand},${accent});color:#fff;font-size:14px;box-shadow:0 4px 18px #0003}
+  .stick.bottom{top:auto;bottom:0}.stick .ico{font-size:18px}.stick a,.stick button.go{color:#fff;background:#ffffff22;border:1px solid #ffffff66;border-radius:99px;padding:5px 14px;text-decoration:none;font-size:13px;cursor:pointer}.stick .close{color:#fff;position:absolute;right:12px;top:6px}
+  .stick .prog{width:160px;height:8px;background:#ffffff44;border-radius:99px;overflow:hidden}.stick .prog i{display:block;height:100%;background:#fff;width:0;transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+  .bar2{height:12px;background:#eee;border-radius:99px;overflow:hidden;margin:8px 0 6px;position:relative}.bar2 i{display:block;height:100%;background:linear-gradient(90deg,${brand},${accent});width:0;transition:width 1.4s cubic-bezier(.2,.8,.2,1)}
+  .bar2 .proj{position:absolute;top:0;height:100%;width:0;transition:width 1.4s cubic-bezier(.2,.8,.2,1);background:repeating-linear-gradient(45deg,${accent}88,${accent}88 6px,${accent}44 6px,${accent}44 12px);border-left:2px solid #fff}
+  .nums{display:flex;justify-content:space-between;font-size:11px;color:#888}.gain{font-size:13px;margin:10px 0 4px}.up{display:none;background:${brand}14;border:1px solid ${brand}44;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:8px}
+  .clock{display:flex;gap:8px;justify-content:center;margin:12px 0}.clock b{background:${ink};color:#fff;border-radius:8px;padding:8px 10px;font-size:22px;min-width:52px;text-align:center;font-variant-numeric:tabular-nums}.clock b small{display:block;font-size:9px;font-weight:400;opacity:.7;letter-spacing:1px}
+  .code{display:flex;gap:8px;align-items:center;justify-content:center;margin:12px 0}.code span{border:2px dashed ${brand};color:${brand};font-weight:800;letter-spacing:2px;padding:10px 16px;border-radius:8px;font-size:18px}.code button{background:${ink};color:#fff;border:0;border-radius:8px;padding:10px 14px}
+  .field{display:flex;gap:8px;margin:12px 0}.field input{flex:1;border:1px solid #ccc;border-radius:8px;padding:11px 12px;font-size:14px}.field button{background:${brand};color:#fff;border:0;border-radius:8px;padding:0 16px;font-weight:700}
+  .opts{display:grid;gap:8px;margin:12px 0}.opts button{border:1px solid #ddd;background:#fff;border-radius:10px;padding:11px;text-align:left;font-size:14px}.opts button:hover{border-color:${brand}}.opts button.on{background:${brand};color:#fff;border-color:${brand}}
+  .wheel{width:220px;height:220px;border-radius:50%;margin:12px auto;position:relative;border:6px solid ${ink};transition:transform 3.2s cubic-bezier(.15,.85,.2,1)}
+  .wheel span{position:absolute;transform:translate(-50%,-50%);font-size:11px;font-weight:700;color:#fff;white-space:nowrap;text-shadow:0 1px 2px #0006}
+  .pin{width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:22px solid ${brand};margin:0 auto -14px;position:relative;z-index:1}
+  .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#111;color:#fff;font-size:12px;padding:8px 14px;border-radius:99px;opacity:0;transition:opacity .25s;white-space:nowrap;max-width:calc(100vw - 40px);overflow:hidden;text-overflow:ellipsis}
+  .toast.in{opacity:.95}.toast.bad{background:#b3261e}
+  @media(max-width:600px){.bar{bottom:8px;width:calc(100vw - 16px);padding:8px;gap:5px}.brand{width:100%;text-align:center}.bar button{font-size:11px;padding:7px}
+    .scene,.scene.wide,.scene.popup,.scene.sheet{right:16px;left:16px;width:auto;top:auto;bottom:115px;transform:none;max-height:calc(100dvh - 135px)}.wide .body{display:block;padding:20px}.body{padding:18px}h1{font-size:22px}.sheet .row{display:block}}
+  `;
+  const MARKUP = `<div class="backdrop" hidden></div><nav class="bar" aria-label="demo panel"></nav><section class="scene" role="region" hidden></section><div class="stick" hidden></div><div class="toast" role="status"></div>`;
+  let styleMode = 'adopted';
+  try { const sheet = new CSSStyleSheet(); sheet.replaceSync(CSS); root.adoptedStyleSheets = [sheet]; setHTML(root, MARKUP); }
+  catch { styleMode = 'inline'; setHTML(root, `<style>${CSS}</style>` + MARKUP); }
+
+  const $ = (s) => root.querySelector(s);
+  const bar = $('.bar'), scene = $('.scene'), stick = $('.stick'), backdrop = $('.backdrop'), toastEl = $('.toast');
+  const scenes = SPEC.scenes || [];
+  const status = {};
+  const state = { added: [] };
+  let selected = -1, toastTimer, ticker = null, exitHandler = null, bodyPad = null;
+  function toast(msg, bad) {
+    toastEl.textContent = msg; toastEl.classList.toggle('bad', !!bad); toastEl.classList.add('in');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('in'), bad ? 4000 : 1800);
+  }
+
+  // ── page edits (saved for restore)
+  const edits = [];
+  function save(el) {
+    if (edits.some(e => e.el === el)) return;
+    const nodes = [];
+    const walk = node => { nodes.push({node, children: [...node.childNodes], value: node.nodeValue}); [...node.childNodes].forEach(walk); };
+    walk(el);
+    edits.push({el, nodes, cls: el.getAttribute('class'), style: el.getAttribute('style')});
+  }
+  function restoreEdits() {
+    while (edits.length) {
+      const e = edits.pop();
+      if (!e.el.isConnected) continue;
+      // Restore the same nodes, including listeners; does not roll back application state.
+      for (const saved of [...e.nodes].reverse()) {
+        if (saved.node.nodeType !== Node.ELEMENT_NODE) saved.node.nodeValue = saved.value;
+        else saved.node.replaceChildren(...saved.children);
+      }
+      for (const [name,value] of [['class',e.cls],['style',e.style]]) {
+        if (value == null) e.el.removeAttribute(name); else e.el.setAttribute(name,value);
+      }
+    }
+    if (bodyPad != null) { document.body.style.paddingTop = bodyPad; bodyPad = null; }
+  }
+  function setText(el, value) {
+    // Replace the visible text but keep child elements (icons, loaders) that the site's own scripts may depend on
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const nodes = []; let n;
+    while ((n = walker.nextNode())) { if (n.nodeValue.trim()) nodes.push(n); }
+    if (!nodes.length) { el.textContent = value; return; }
+    nodes.sort((a, b) => b.nodeValue.trim().length - a.nodeValue.trim().length);
+    nodes[0].nodeValue = value;
+    nodes.slice(1).forEach((x) => { x.nodeValue = ''; });
+  }
+  function applyTarget(t) {
+    const el = pick(t.selectors); if (!el) return false;
+    save(el);
+    if (t.html != null) setHTML(el, clean(fill(t.html)));
+    else if (t.text != null) setText(el, fill(t.text));
+    if (t.style) el.style.cssText += ';' + t.style;
+    if (t.badge) { const b = document.createElement('span'); b.textContent = fill(t.badge); b.style.cssText = `display:inline-block;margin-left:8px;padding:2px 9px;border-radius:99px;background:${brand};color:#fff;font-size:11px;font-weight:700;vertical-align:middle;${t.badge_style || ''}`; el.appendChild(b); }
+    if (t.highlight !== false && (t.style || t.html != null || t.text != null)) el.style.outline = `2px dashed ${brand}88`;
+    return true;
+  }
+  function bumpNumber(selectors, delta, asMoney) {
+    const el = pick(selectors); if (!el) return;
+    save(el);
+    const v = parseFloat(el.textContent.replace(/[^\d.]/g, '')) || 0;
+    el.textContent = asMoney ? money(v + delta) : String(v + delta);
+  }
+
+  // ── building blocks
+  const foot = () => `<footer class="foot">${text(SPEC.meeting?.disclaimer || T.foot)}</footer>`;
+  const head = (d) => `<div class="head ${d.head_style === 'brand' ? 'hd-brand' : ''}">${d.icon && d.head_style === 'brand' ? `<span class="ico">${text(d.icon)}</span>` : ''}<b>${h(d.header || cust.name || '')}</b><button class="close" data-action="hide" aria-label="close">×</button></div>`;
+  const intro = (d) => `${d.icon && d.head_style !== 'brand' ? `<div class="symbol" aria-hidden="true">${text(d.icon)}</div>` : ''}${d.copy?.eyebrow ? `<span class="tag">${h(d.copy.eyebrow)}</span>` : ''}${d.copy?.title ? `<h1 tabindex="-1">${h(d.copy.title)}</h1>` : ''}${d.copy?.body ? `<p>${h(d.copy.body)}</p>` : ''}`;
+  const cardBlock = (d) => (d.card ? `<div class="card">${d.card.eyebrow ? `<small>${h(d.card.eyebrow)}</small>` : ''}<b>${h(d.card.title)}</b><span>${h(d.card.detail)}</span></div>` : '') + (d.rows?.length ? `<div class="rows">${d.rows.map(([k, v]) => `<div class="row"><span>${h(k)}</span><b>${h(v)}</b></div>`).join('')}</div>` : '');
+  const ctaBlock = (d) => `${d.cta_scene && d.copy?.cta ? `<button class="cta" data-goto="${text(d.cta_scene)}">${h(d.copy.cta)} →</button>` : d.cta_url && d.copy?.cta ? `<a class="cta" href="${text(d.cta_url)}">${h(d.copy.cta)} →</a>` : ''}${d.copy?.later !== '' ? `<button class="later" data-action="hide">${text(d.copy?.later || T.later)}</button>` : ''}${d.note ? `<div class="note">${h(d.note)}</div>` : ''}`;
+  const items = (d, addable) => `<div class="items ${d.layout === 'sheet' ? 'row' : ''}">${(d.products || []).map((p, i) => `<div class="item" data-i="${i}"><img src="${text(p.img || '')}" alt=""><div><div class="n">${h(p.name)}</div>${p.tag ? `<div class="t">${h(p.tag)}</div>` : ''}<div class="p">${money(p.price)}</div></div>${addable ? `<button class="add">${text(d.copy?.item_cta || T.add)}</button>` : (p.url ? `<a href="${text(p.url)}">${text(d.copy?.item_cta || T.view)}</a>` : '')}</div>`).join('')}</div>`;
+  const stats = (d) => `<div class="stats">${(d.stats || []).map((s) => `<div class="stat"><em>${text(s.value)}</em><span>${h(s.label)}</span></div>`).join('')}</div>${d.stock_line ? `<span class="pill">${h(d.stock_line)}</span>` : ''}`;
+  const cls = (d, extra) => [extra || '', d.layout === 'wide' ? 'wide' : '', d.layout === 'sheet' ? 'sheet' : '', d.theme === 'dark' ? 'dark' : '', d.position ? 'pos-' + d.position : ''].join(' ');
+  const wrap = (d, inner, extra) => ({ className: cls(d, extra), html: head(d) + `<div class="body">${inner}</div>` + foot() });
+  const orderTotal = (d) => num(d.total_var || 'cart_total', d.order_total) + state.added.reduce((s, p) => s + (Number(p.price) || 0), 0);
+  function sticky(d, inner, bottom) {
+    stick.className = 'stick ' + (bottom || d.position === 'bottom' ? 'bottom' : '');
+    setHTML(stick, `${d.icon ? `<span class="ico">${text(d.icon)}</span>` : ''}${inner}<button class="close" data-action="hide" aria-label="close">×</button>`);
+    applyStyles(stick); stick.hidden = false;
+    if (d.push_body && !bottom && d.position !== 'bottom') { if (bodyPad == null) bodyPad = document.body.style.paddingTop; document.body.style.paddingTop = '44px'; }
+  }
+  function clock(d) {
+    const end = Date.now() + (Number(d.ends_in_minutes) || 30) * 60000;
+    const tick = () => {
+      const left = Math.max(0, end - Date.now());
+      const hh = Math.floor(left / 3600000), mm = Math.floor(left / 60000) % 60, ss = Math.floor(left / 1000) % 60;
+      root.querySelectorAll('[data-clock]').forEach((el) => { setHTML(el, `<b>${String(hh).padStart(2, '0')}<small>HRS</small></b><b>${String(mm).padStart(2, '0')}<small>MIN</small></b><b>${String(ss).padStart(2, '0')}<small>SEC</small></b>`); });
+      root.querySelectorAll('[data-clock-inline]').forEach((el) => { el.textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`; });
+    };
+    clearInterval(ticker); tick(); ticker = setInterval(tick, 1000);
+  }
+  const grow = (rootEl) => setTimeout(() => rootEl.querySelectorAll('[data-w]').forEach((el) => { el.style.width = el.dataset.w + '%'; }), 120);
+  const thanks = (d) => { setHTML(scene.querySelector('.body'), `<div class="symbol">✓</div><h1>${h(d.copy?.thanks || T.thanks)}</h1>${d.copy?.thanks_body ? `<p>${h(d.copy.thanks_body)}</p>` : ''}<div class="note">${T.foot}</div>`); };
+  const modal = (d) => { if (d.layout === 'popup') { backdrop.hidden = false; return 'popup'; } return ''; };
+
+  // ── presets
+  const R = {
+    banner(d) {
+      const body = d.layout === 'wide' ? `<div>${intro(d)}</div><div>${cardBlock(d)}${items(d)}${ctaBlock(d)}</div>` : intro(d) + cardBlock(d) + items(d) + ctaBlock(d);
+      return wrap(d, body);
+    },
+    popup(d) { backdrop.hidden = false; return wrap(d, intro(d) + cardBlock(d) + items(d) + ctaBlock(d), 'popup'); },
+    sticky_bar(d) {
+      sticky(d, `<span>${h(d.copy?.title)}</span>${d.cta_url && d.copy?.cta ? `<a href="${text(d.cta_url)}">${h(d.copy.cta)}</a>` : ''}`);
+      return { silent: true };
+    },
+    inline_edit(d) {
+      const found = (d.targets || []).filter(applyTarget).length;
+      if (!found) return { silent: true, ok: false, reason: T.noTarget + ' ' + JSON.stringify((d.targets || []).map((t) => t.selectors)) };
+      if (d.copy?.title) return wrap(Object.assign({ position: 'tr' }, d), intro(d) + ctaBlock(d));
+      return { silent: true };
+    },
+    reco_card(d) {
+      const r = wrap(d, intro(d) + items(d, d.addable) + ctaBlock(d));
+      r.ok = (d.products || []).length > 0; r.reason = 'products[] empty';
+      r.after = () => scene.querySelectorAll('button.add').forEach((b) => b.addEventListener('click', () => {
+        const p = d.products[Number(b.closest('.item').dataset.i)];
+        state.added.push(p); b.textContent = T.added; b.classList.add('ok'); b.disabled = true;
+        if (d.bump?.qty_selectors) bumpNumber(d.bump.qty_selectors, 1, false);
+        if (d.bump?.total_selectors) bumpNumber(d.bump.total_selectors, Number(p.price) || 0, true);
+        toast(`${T.added} ${p.name}`);
+      }));
+      return r;
+    },
+    social_proof(d) {
+      const r = wrap(Object.assign({ head_style: 'brand' }, d), intro(d) + stats(d) + ctaBlock(d));
+      r.ok = (d.stats || []).length > 0; r.reason = 'stats[] empty'; return r;
+    },
+    tier_progress(d) {
+      const t = d.tier || {};
+      const total = orderTotal(d);
+      const gain = Math.round(total * (Number(t.rate) || 0));
+      const ytd = Number(t.ytd) || 0, nextAt = Number(t.next_at) || 1;
+      const before = Math.min(100, Math.round(ytd / nextAt * 100)), after = Math.min(100, Math.round((ytd + gain) / nextAt * 100));
+      const up = ytd + gain >= nextAt;
+      Object.assign(vars, { tier_now: t.now, tier_next: t.next, tier_gain: fmt(gain), tier_ytd: fmt(ytd), tier_next_at: fmt(nextAt), order_total: money(total), tier_rate: Math.round((t.rate || 0) * 100) + '%' });
+      const inner = intro(d) +
+        `<div class="bar2"><i data-w="${before}"></i><span class="proj" data-style="left:${before}%" data-w="${Math.max(0, after - before)}"></span></div>
+        <div class="nums"><span>${text(t.now)}</span><span>${text(t.next)} · ${fmt(nextAt)}${text(t.unit || 'pt')}</span></div>
+        <div class="gain">${h(d.copy?.gain_line || '')}</div>
+        <div class="up" ${up ? 'data-style="display:block"' : ''}>${h(d.copy?.up_line || '')}</div>` + ctaBlock(d);
+      const r = wrap(Object.assign({ head_style: 'brand', position: 'tr' }, d), inner);
+      r.after = () => grow(scene);
+      return r;
+    },
+    countdown(d) {
+      if (d.as === 'sticky') {
+        sticky(d, `<span>${h(d.copy?.title)}</span><b data-clock-inline data-style="font-variant-numeric:tabular-nums"></b>${d.cta_url && d.copy?.cta ? `<a href="${text(d.cta_url)}">${h(d.copy.cta)}</a>` : ''}`);
+        clock(d); return { silent: true };
+      }
+      const r = wrap(d, intro(d) + `<div class="clock" data-clock></div>` + cardBlock(d) + ctaBlock(d), modal(d));
+      r.after = () => clock(d); return r;
+    },
+    free_shipping_bar(d) {
+      const th = Number(d.threshold) || 1, now = orderTotal(d), left = Math.max(0, th - now), pct = Math.min(100, Math.round(now / th * 100));
+      Object.assign(vars, { remaining: money(left), threshold: money(th), current_total: money(now) });
+      const line = left > 0 ? h(d.copy?.title) : h(d.copy?.done_line || d.copy?.title);
+      if (d.as !== 'card') {
+        sticky(d, `<span>${line}</span><span class="prog"><i data-w="${pct}"></i></span>${d.cta_url && d.copy?.cta ? `<a href="${text(d.cta_url)}">${h(d.copy.cta)}</a>` : ''}`);
+        grow(stick); return { silent: true };
+      }
+      const r = wrap(d, `${d.copy?.eyebrow ? `<span class="tag">${h(d.copy.eyebrow)}</span>` : ''}<h1 tabindex="-1">${line}</h1><div class="bar2"><i data-w="${pct}"></i></div><div class="nums"><span>${money(now)}</span><span>${money(th)}</span></div>` + ctaBlock(d));
+      r.after = () => grow(scene); return r;
+    },
+    coupon(d) {
+      const r = wrap(d, intro(d) + `<div class="code"><span>${text(d.code || 'WELCOME10')}</span><button class="cp">${T.copy}</button></div>` + cardBlock(d) + ctaBlock(d), modal(d));
+      r.after = () => { const b = scene.querySelector('.cp'); b.addEventListener('click', () => { navigator.clipboard?.writeText(d.code || '').catch(() => {}); b.textContent = T.copied; }); };
+      return r;
+    },
+    exit_intent(d) {
+      const open = () => { backdrop.hidden = false; scene.className = 'scene ' + cls(d, 'popup'); setHTML(scene, head(d) + `<div class="body">${intro(d)}${cardBlock(d)}${ctaBlock(d)}</div>` + foot()); applyStyles(scene); scene.hidden = false; requestAnimationFrame(() => scene.classList.add('in')); };
+      if (d.trigger === 'immediate' || exitHandler) { if (exitHandler) { document.removeEventListener('mouseleave', exitHandler); exitHandler = null; } open(); return { silent: true }; }
+      exitHandler = (e) => { if (e.clientY <= 0) { document.removeEventListener('mouseleave', exitHandler); exitHandler = null; open(); } };
+      document.addEventListener('mouseleave', exitHandler);
+      return { silent: true, msg: T.armed };
+    },
+    lead_form(d) {
+      const r = wrap(d, intro(d) + `<div class="field"><input type="${text(d.field_type || 'email')}" placeholder="${text(d.placeholder || 'you@example.com')}" aria-label="input"><button class="go">${text(d.copy?.cta || T.submit)}</button></div>${d.consent ? `<div class="sub">${h(d.consent)}</div>` : ''}${d.note ? `<div class="note">${h(d.note)}</div>` : ''}`, modal(d));
+      r.after = () => scene.querySelector('.go').addEventListener('click', () => thanks(d));
+      return r;
+    },
+    survey(d) {
+      const r = wrap(d, intro(d) + `<div class="opts">${(d.options || []).map((o) => `<button>${h(o)}</button>`).join('')}</div>${d.note ? `<div class="note">${h(d.note)}</div>` : ''}`, modal(d));
+      r.ok = (d.options || []).length > 0; r.reason = 'options[] empty';
+      r.after = () => scene.querySelectorAll('.opts button').forEach((b) => b.addEventListener('click', () => { b.classList.add('on'); setTimeout(() => thanks(d), 500); }));
+      return r;
+    },
+    spin_to_win(d) {
+      const segs = d.segments || ['5%', '10%', 'FREE SHIP', '15%', 'GIFT', '20%'];
+      const n = segs.length, step = 360 / n;
+      const grad = segs.map((s, i) => `${i % 2 ? accent : brand} ${i * step}deg ${(i + 1) * step}deg`).join(',');
+      const labels = segs.map((s, i) => { const a = (i * step + step / 2) * Math.PI / 180; return `<span data-style="left:${(50 + 33 * Math.sin(a)).toFixed(1)}%;top:${(50 - 33 * Math.cos(a)).toFixed(1)}%">${text(s)}</span>`; }).join('');
+      const r = wrap(d, intro(d) + `<div class="pin"></div><div class="wheel" data-style="background:conic-gradient(${grad})">${labels}</div><button class="cta go">${text(d.copy?.cta || T.spin)}</button>${d.note ? `<div class="note">${h(d.note)}</div>` : ''}`, 'popup');
+      backdrop.hidden = false;
+      r.after = () => { const w = scene.querySelector('.wheel'), b = scene.querySelector('.go'); b.addEventListener('click', () => {
+        const win = Math.min(n - 1, Number(d.win_index) || 0); b.disabled = true;
+        w.style.transform = `rotate(${360 * 5 - (win * step + step / 2)}deg)`;
+        setTimeout(() => { setHTML(scene.querySelector('.body'), `<div class="symbol">🎉</div><h1>${h(d.copy?.win_title || segs[win])}</h1>${d.code ? `<div class="code"><span>${text(d.code)}</span></div>` : ''}${d.copy?.win_body ? `<p>${h(d.copy.win_body)}</p>` : ''}${ctaBlock(d)}`); }, 3400);
+      }); };
+      return r;
+    },
+    custom(d) { const r = wrap(d, `<div data-style="grid-column:1/-1">${clean(fill(d.customHtml))}</div>`, modal(d)); r.ok = !!d.customHtml; r.reason = 'customHtml empty'; return r; },
+  };
+
+  function hide() {
+    scene.hidden = true; scene.classList.remove('in'); backdrop.hidden = true; stick.hidden = true;
+    clearInterval(ticker); ticker = null;
+    if (bodyPad != null) { document.body.style.paddingTop = bodyPad; bodyPad = null; }
+    if (selected >= 0) $(`[data-scene="${selected}"]`)?.focus();
+  }
+  function reset() {
+    hide(); restoreEdits(); state.added = []; selected = -1;
+    if (exitHandler) { document.removeEventListener('mouseleave', exitHandler); exitHandler = null; }
+    root.querySelectorAll('[data-scene]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+    toast(T.reset_done);
+  }
+  function show(i) {
+    const d = scenes[i]; if (!d) return;
+    if (d.page && d.page !== 'any' && d.page !== page) { toast(T.wrongPage(d.page), true); return; }
+    hide(); if (!d.keep_edits) restoreEdits(); selected = i;
+    root.querySelectorAll('[data-scene]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.scene) === i)));
+    const r = R[d.pattern] || R.banner;
+    let out;
+    try { out = r(d); } catch (e) { status[d.id] = 'FAIL: ' + e.message; toast(`${d.label}: ${T.fail} ${e.message}`, true); return; }
+    if (!out.silent) {
+      scene.className = 'scene ' + (out.className || '');
+      setHTML(scene, out.html); applyStyles(scene); scene.hidden = false; scene.scrollTop = 0;
+      scene.querySelectorAll('img').forEach((im) => im.addEventListener('error', () => { im.style.visibility = 'hidden'; }));
+      requestAnimationFrame(() => scene.classList.add('in'));
+      scene.querySelector('h1')?.focus({ preventScroll: true });
+    }
+    if (out.after) out.after();
+    const ok = out.ok !== false;
+    status[d.id] = ok ? 'OK' : 'FAIL: ' + out.reason;
+    toast(out.msg || `${d.label}: ${ok ? T.ok : T.fail + ' · ' + out.reason}`, !ok);
+  }
+  function report() {
+    return { shell: VER, url: location.href, page, style_mode: styleMode, trusted_types: !!TT, vars, ua: navigator.userAgent, scenes: scenes.map((s) => ({ id: s.id, page: s.page, pattern: s.pattern, status: status[s.id] || 'not run' })) };
+  }
+  async function copyDiag() {
+    const j = JSON.stringify(report(), null, 2);
+    try { await navigator.clipboard.writeText(j); toast(T.diag + ' ✓'); } catch { console.log(j); toast('console'); }
+  }
+  function buildBar() {
+    setHTML(bar, `<span class="brand">${text((cust.name || '').toUpperCase())} × DEMO KIT · ${T.demo}</span>` +
+      scenes.map((s, i) => s.hidden ? '' : `<button data-scene="${i}" aria-pressed="false" class="${s.page && s.page !== 'any' && s.page !== page ? 'off' : ''}" title="${text(s.page || 'any')} · ${text(s.pattern)}">${text(s.label)}</button>`).join('') +
+      `<button class="util" data-action="reset">${T.reset}</button><button class="util" data-action="diag">${T.diag}</button><button class="util" data-action="destroy">${T.exit}</button>`);
+  }
+  function onKey(e) {
+    if (e.key === 'Escape') { hide(); return; }
+    if (e.composedPath().some((el) => el.tagName && /INPUT|TEXTAREA|SELECT/.test(el.tagName))) return;
+    const n = Number(e.key);
+    if (n >= 1 && n <= 9 && scenes[n - 1]) show(n - 1);
+  }
+  function destroy() {
+    hide(); restoreEdits(); document.removeEventListener('keydown', onKey); observer.disconnect();
+    if (exitHandler) document.removeEventListener('mouseleave', exitHandler);
+    history.pushState = origPush; history.replaceState = origReplace;
+    window.removeEventListener('popstate', onRoute); window.removeEventListener('hashchange', onRoute);
+    host.remove(); delete window[KEY];
+    if (previous?.isConnected) previous.focus({ preventScroll: true });
+  }
+
+  // ── SPA support: keep host mounted, re-detect page on route change
+  const observer = new MutationObserver(() => { if (!host.isConnected && document.body) document.body.appendChild(host); });
+  const origPush = history.pushState, origReplace = history.replaceState;
+  function onRoute() { setTimeout(() => { const p = detectPage(); if (p !== page) { page = p; hide(); restoreEdits(); buildBar(); toast('page: ' + page); } }, 400); }
+  history.pushState = function () { origPush.apply(this, arguments); onRoute(); };
+  history.replaceState = function () { origReplace.apply(this, arguments); onRoute(); };
+  window.addEventListener('popstate', onRoute); window.addEventListener('hashchange', onRoute);
+
+  root.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.scene !== undefined) show(Number(b.dataset.scene));
+    else if (b.dataset.goto) { const i = scenes.findIndex((x) => x.id === b.dataset.goto); if (i >= 0) show(i); }
+    else if (b.dataset.action === 'hide') hide();
+    else if (b.dataset.action === 'reset') reset();
+    else if (b.dataset.action === 'diag') copyDiag();
+    else if (b.dataset.action === 'destroy') destroy();
+  });
+  backdrop.addEventListener('click', hide);
+  document.addEventListener('keydown', onKey);
+  buildBar();
+  document.body.appendChild(host);
+  observer.observe(document.documentElement, { childList: true });
+  window[KEY] = { destroy, show, reset, report, spec: SPEC, state };
+  toast(`${VER} · ${cust.name || ''} · page: ${page}${styleMode === 'inline' ? ' · inline css' : ''}`);
+})();
+</script>
+<script id="embedded-spec" type="application/json">__SPEC__</script>
+<script id="embedded-scan" type="application/json">null</script>
+<header><span id="hdr-brand">DEMO KIT · DEMO KIT BUILDER</span><small id="hdr-ver"></small></header>
+<main>
+<section id="editor">
+<div class="steps"><span id="st1" class="step on">1 Site scan</span><span id="st2" class="step">2 Scene spec</span><span id="st3" class="step">3 Kit</span></div>
+
+<section id="step1" class="card">
+  <small>STEP 1 · SITE SCAN → GEM</small>
+  <h2>Paste the site scan JSON → check the brief → Model request</h2>
+  <p>Paste the JSON copied with the "Site scan" bookmark on the customer's site. The brief is pre-filled from the scan; just check and edit. <small>Already have a Scene spec? Skip to step 2.</small></p>
+  <textarea id="recon" spellcheck="false" placeholder='{ "scan": "scan 0.4", "site_name": "...", "pages": [ ... ] }' style="min-height:120px"></textarea>
+  <div class="row" style="margin-top:10px"><button id="read-recon">Read scan</button><span id="recon-status"></span></div>
+  <div id="recon-sum" class="msgs"></div>
+  <div id="gem-req" hidden style="margin-top:14px;padding:18px;border:2px solid #1b6e3a;border-radius:12px;background:#f6fbf7">
+    <h2 style="margin-top:0;font-size:18px">Brief <small style="font-weight:400">— pre-filled from the scan. Fix only what is wrong</small></h2>
+    <table>
+      <tr><td style="width:160px">Customer</td><td><input id="b-customer" placeholder="e.g. MUJI USA"></td></tr>
+      <tr><td>Industry</td><td><input id="b-industry" placeholder="e.g. Lifestyle retail (Retail)"></td></tr>
+      <tr><td>Meeting purpose</td><td><input id="b-purpose" placeholder="e.g. 3-minute demo in the first meeting"></td></tr>
+      <tr><td>What the customer cares about</td><td><input id="b-pain" placeholder="e.g. returning-visitor personalization, cart abandonment, member retention"></td></tr>
+      <tr><td>Visitors to show</td><td><input id="b-visitors" placeholder="e.g. returning guest / member with a cart / VIP"></td></tr>
+      <tr><td>Pages</td><td><input id="b-pages" placeholder="e.g. home only / home + product page" value="home only"></td></tr>
+      <tr><td>Notes (optional)</td><td><input id="b-notes" placeholder="e.g. competitor in use (never in copy), tone, things to avoid"></td></tr>
+    </table>
+    <div class="row" style="margin-top:10px"><button id="gem-req-copy">Copy Model request</button><a class="bookmark" style="background:#222c39" href="https://gemini.google.com/" target="_blank" rel="noopener">Open Gemini ↗</a><span id="req-status"></span></div>
+    <p><small>Paste the request into your model chat; it returns a <b>spec JSON</b>. Put that into step 2 below.</small></p>
+    <textarea id="req-copy" hidden readonly style="min-height:70px;margin-top:8px"></textarea>
+  </div>
+</section>
+
+<section id="step2" class="card">
+  <small>STEP 2 · GEM → KIT</small>
+  <h2>Paste the spec JSON from your model → Build</h2>
+  <p>You can paste the whole Model answer; prose and code fences are stripped automatically. The step-1 scan is remembered and used to check URLs and products.</p>
+  <textarea id="spec" spellcheck="false" placeholder='{ "version": 1, "customer": { ... }, "scenes": [ ... ] }'></textarea>
+  <div class="row" style="margin-top:10px">
+    <button id="build">Build</button>
+    <button id="save" class="alt" hidden>Save standalone kit file</button>
+    <button id="copy-msgs" class="ghost" hidden>Copy validation messages (paste into Gem)</button>
+    <span id="status"></span>
+  </div>
+  <div id="msgs" class="msgs"></div>
+  <textarea id="msgs-copy" hidden readonly style="min-height:80px"></textarea>
+</section>
+</section>
+
+<div id="kit" hidden>
+  <small id="k-sub"></small>
+  <h1 id="k-title"></h1>
+  <p id="k-lead"></p>
+
+  <section class="card">
+    <h2>1. Drag this button to the Chrome bookmarks bar</h2>
+    <p>Show the bookmarks bar: Mac ⌘⇧B / Windows Ctrl⇧B. Replace any older bookmark for the same customer.</p>
+    <div class="row"><a id="bm" class="bookmark" href="#">Demo</a><button id="copy-code" class="alt">Copy code</button><button id="copy-console" class="ghost">Copy console code</button><span id="bm-size" class="pill"></span></div>
+    <details><summary>If dragging does not work</summary>
+      <p>Bookmark any page → Edit → paste the whole code below into the URL field. Not into the address bar or a search box.</p>
+      <textarea id="code" readonly></textarea></details>
+    <details><summary>Developer code (only where permitted)</summary>
+      <p>On the customer site: F12 → Console → paste the code from <b>Copy console code</b> → Enter. If Chrome asks you to type <code>allow pasting</code> once, do so and paste again. Re-paste after every page change. Saving it under Sources → Snippets lets you re-run with Ctrl+Enter.</p></details>
+  </section>
+
+  <section class="card">
+    <h2>2. Run order</h2>
+    <p><a id="k-entry" href="#" target="_blank" rel="noopener">Open the customer site ↗</a> → click the saved bookmark → buttons in the order below. After a page change, click the bookmark again.</p>
+    <table><thead><tr><th>Page</th><th>Button</th><th>Assumed visitor</th><th>What appears</th><th>CTA goes to</th></tr></thead><tbody id="k-order"></tbody></table>
+    <p><small>× / Esc: close scene · Reset: restore the page · Exit ×: remove the demo · number keys 1–9: switch scenes · Copy diagnostics: copy the run report JSON (paste into Gem to fix)</small></p>
+  </section>
+
+  <section class="card">
+    <h2>3. Talk track</h2>
+    <blockquote id="k-open"></blockquote>
+    <ol id="k-lines"></ol>
+    <blockquote id="k-close"></blockquote>
+    <div id="k-objections"></div>
+  </section>
+
+  <section class="card">
+    <h2>4. What the real setup needs (for scoping)</h2>
+    <p>The demo collects and decides none of this; the presenter picks fixed scenes.</p>
+    <table><thead><tr><th>Scene</th><th>Production implementation considerations</th><th>Source use case</th></tr></thead><tbody id="k-impl"></tbody></table>
+  </section>
+
+  <section class="card">
+    <h2>5. Pre-meeting checklist · local rehearsal</h2>
+    <ul id="k-prep"></ul>
+    <div class="row"><button id="rehearse" class="alt">Rehearse on this page</button>
+      <label>Assume page <select id="page-sel"></select></label></div>
+    <p><small>Runs the same code as the bookmark on this page. If company browser policy or the site CSP blocks it on the real site, present from here. No order or lead submission; images and links may load.</small></p>
+  </section>
+
+  <section class="card">
+    <h2>6. When it does not work</h2>
+    <table><thead><tr><th>Symptom</th><th>Cause</th><th>What to do</th></tr></thead><tbody>
+      <tr><td>Nothing happens on click</td><td>Company policy blocks javascript: bookmarks, or you are on another site</td><td>Check the domain. If policy blocks execution, use the local rehearsal (5)</td></tr>
+      <tr><td>"Run this bookmark on …" alert</td><td>site.hosts in the spec does not match the current domain (m. subdomain, staging)</td><td>Ask your model to add the host and rebuild. Subdomains are allowed automatically</td></tr>
+      <tr><td>Panel shows but scenes are white boxes</td><td>Site policy may restrict styles or script execution</td><td>Use current Chrome. If the toast says "inline css", switch to the local rehearsal</td></tr>
+      <tr><td>Scene button is dimmed and does not open</td><td>That scene is for another page (its tooltip names it)</td><td>Go to that page and click the bookmark again, or ask your model for page:"any"</td></tr>
+      <tr><td>Toast says "FAIL · target element not found"</td><td>The inline-edit selectors are not on this page (different product page, site deploy changed classes, login state)</td><td>Re-run the site scan on that page → send the diagnostics to your model and ask for new selectors</td></tr>
+      <tr><td>{{product_name}} shows literally</td><td>The reader selector found nothing and there is no vars fallback</td><td>Ask your model to add vars fallbacks (use the scan samples)</td></tr>
+      <tr><td>Demo disappears after a CTA navigates</td><td>Expected: a bookmarklet lives per page load</td><td>Click the bookmark again. SPAs keep it across in-app navigation</td></tr>
+      <tr><td>Reset does not restore an edited element</td><td>The SPA re-rendered it; the original reference is gone</td><td>Reload the page. Mid-demo: Exit, then click again</td></tr>
+      <tr><td>Build says "JSON parse failed"</td><td>Prose, code fences or trailing commas the repair could not fix</td><td>Ask your model: "valid JSON only, no code block, full output"</td></tr>
+      <tr><td>Build rejects cta_url / products</td><td>The Gem used a URL or product that is not in the scan (grounding rule)</td><td>"Copy validation messages" → paste into your model. Scan the missing page if needed</td></tr>
+      <tr><td>Cannot drag the bookmark / URL too long</td><td>Drag fails on some browser/OS combinations</td><td>"Copy code" → edit any bookmark → paste into the URL field</td></tr>
+      <tr><td>Buttons do nothing in a Drive/Slack preview</td><td>Previews do not run scripts</td><td>Download the file and open it in Chrome directly</td></tr>
+      <tr><td>Customer asks "did you hack our site?"</td><td>A scene appeared without the opening line</td><td>Explain that this is a local concept, no real form is submitted, and images or links may make requests</td></tr>
+    </tbody></table>
+  </section>
+</div>
+</main>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const LANG = 'en' === 'en' ? 'en' : 'ko';
+  const shellSrc = $('#shell-src').textContent;
+  const PATTERNS = ['banner', 'popup', 'sticky_bar', 'inline_edit', 'reco_card', 'social_proof', 'tier_progress', 'countdown', 'free_shipping_bar', 'coupon', 'exit_intent', 'lead_form', 'survey', 'spin_to_win', 'custom'];
+  const pristine = '<!doctype html>\n' + document.documentElement.outerHTML;   // captured before any rendering
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const rich = (s) => esc(s).replace(/&lt;br&gt;/g, '<br>');   // allow <br> only
+  let spec = null, code = '';
+  const say = (ko, en) => (LANG === 'en' ? en : ko);
+
+  // The spec's own site.allowed_urls / site.products are not evidence — your model writes them.
+  // Everything the demo will actually use is checked against the scan the consultant pasted in step 1.
+  function validateSource(s, source) {
+    const err = [], warn = [];
+    if (!source) return {err: ['Original scan required. Paste it in step 1.'], warn};
+    const hint = say('이 메시지를 Gem에 전달해 원본 스캔에 맞춰 수정하세요. 필요한 정보가 없으면 해당 페이지를 다시 스캔하세요.',
+                     'Send this message to your model to match the original scan. Re-scan the relevant page if information is missing.');
+    const fail = (path, detail) => err.push(`${path}: ${detail} — ${hint}`);
+    if (!Array.isArray(source.pages) || !source.pages.length || !Array.isArray(source.allowed_urls)) {
+      fail('scan', say('페이지와 allowed_urls가 있는 원본 스캔이 필요합니다', 'An original scan with pages and allowed_urls is required'));
+      return { err, warn };
+    }
+    const urls = new Set(source.allowed_urls);
+    const products = source.pages.flatMap((p) => p.products || []);
+    const selectors = new Set(source.pages.flatMap((p) => Object.values(p.selectors || {}).flat()));
+    const checkUrl = (url, path) => { if (url && !/^https?:\/\//i.test(url)) fail(path, 'Only HTTP(S) URLs are allowed'); if (url && !urls.has(url)) fail(path, say('원본 스캔에 없는 URL', 'URL absent from original scan') + `: ${url}`); };
+    // A scanned selector with trailing classes removed is still grounded (themes add runtime classes like .mdc-ripple-surface)
+    const grounded = (v) => selectors.has(v) || [...selectors].some((x) => x.startsWith(v) && x.slice(v.length).startsWith('.'));
+    const checkSelectors = (values, path) => {
+      if (!Array.isArray(values)) { fail(path, say('셀렉터 배열이 필요합니다', 'Expected an array of selectors')); return; }
+      values.forEach((v) => { if (!grounded(v)) fail(path, say('원본 스캔에 없는 셀렉터', 'Selector absent from original scan') + `: ${v}`); });
+    };
+    // Invisible differences (non-breaking spaces, doubled spaces) are not inventions; a different value is.
+    const norm = (v) => String(v ?? '').replace(/[\u00a0\u2007\u202f]/g, ' ').replace(/\s+/g, ' ').trim();
+    const cut = (v) => { const t = norm(v); return t.length > 60 ? t.slice(0, 60) + '…' : t; };
+    const checkProducts = (items, path) => (items || []).forEach((item, i) => {
+      if (item.img && !/^https?:\/\//i.test(item.img)) fail(path, 'Image URL must use HTTP(S)');
+      checkUrl(item.url, `${path}[${i}].url`);
+      const candidates = products.filter((p) => p.url === item.url);
+      if (!candidates.length) { fail(`${path}[${i}]`, say('원본 스캔에 없는 상품', 'Product absent from original scan')); return; }
+      const same = (p, key) => (key === 'price' ? Number(item[key] ?? NaN) === Number(p[key] ?? NaN) || (item[key] == null && p[key] == null) : norm(item[key]) === norm(p[key]));
+      const keys = ['name', 'price', 'img'];
+      if (candidates.some((p) => keys.every((k) => same(p, k)))) return;
+      const best = candidates[0];
+      const bad = keys.filter((k) => !same(best, k));
+      fail(`${path}[${i}].${bad.join('/')}`, say('스캔한 상품 값과 다릅니다', 'Differs from the scanned product') +
+        ` — ${say('스펙', 'spec')}: ${bad.map((k) => cut(item[k])).join(' / ')} · ${say('스캔', 'scan')}: ${bad.map((k) => cut(best[k])).join(' / ')}`);
+    });
+    (s.scenes || []).forEach((scene,i) => { if (scene.usecase_ref?.url) checkUrl(scene.usecase_ref.url, 'scenes.'+i+'.usecase_ref.url'); });
+    checkUrl(s.site?.entry_url, 'site.entry_url');
+    (s.site?.pages || []).forEach((p, i) => checkUrl(p.url, `site.pages[${i}].url`));
+    const hosts = new Set([source.host, ...(source.hosts || [])]);
+    (s.site?.hosts || []).forEach((h) => { if (!hosts.has(h)) fail('site.hosts', say('원본 스캔과 다른 호스트', 'Host differs from original scan') + `: ${h}`); });
+    checkProducts(s.site?.products, 'site.products');
+    Object.entries(s.site?.readers || {}).forEach(([k, v]) => checkSelectors(v, `site.readers.${k}`));
+    (s.scenes || []).forEach((scene, i) => {
+      const path = `scenes[${i}]`;
+      checkUrl(scene.cta_url, `${path}.cta_url`);
+      checkProducts(scene.products, `${path}.products`);
+      (scene.targets || []).forEach((t, j) => checkSelectors(t.selectors, `${path}.targets[${j}].selectors`));
+      for (const k of ['qty_selectors', 'total_selectors']) {
+        if (scene.bump?.[k] !== undefined) checkSelectors(scene.bump[k], `${path}.bump.${k}`);
+      }
+    });
+    return { err, warn };
+  }
+
+  function validate(s) {
+    const err = [], warn = [];
+    function inspect(value, path = '') {
+      if (typeof value === 'string') {
+        if (/<\/?[a-z][^>]*>/i.test(value) && /<(?!\/?(?:br|b|strong|em|i|span|p|div|small|h[1-3]|ul|ol|li|section|table|thead|tbody|tr|td|th)(?:\s|>|\/))[^>]+>/i.test(value)) err.push(path + ': unsupported HTML tag');
+        if (/\bon[a-z]+\s*=|(?:href|src|srcset|action|style)\s*=/i.test(value)) err.push(path + ': HTML attributes are not supported');
+        if (/(?:url|expression)\s*\(|@import|javascript:|vbscript:/i.test(value)) err.push(path + ': active content is not supported');
+      } else if (Array.isArray(value)) value.forEach((v,i)=>inspect(v,path+'.'+i));
+      else if (value && typeof value === 'object') Object.entries(value).forEach(([k,v])=>inspect(v,path+'.'+k));
+    }
+    inspect(s);
+    const need = (obj, path, keys) => keys.forEach((k) => { if (obj?.[k] === undefined || obj?.[k] === '') err.push(`${path}.${k} missing`); });
+    if (s.version !== 1) err.push('version must be 1');
+    need(s.customer, 'customer', ['name', 'lang', 'brand_color']);
+    if (s.customer?.brand_color && !/^#[0-9a-fA-F]{6}$/.test(s.customer.brand_color)) err.push('customer.brand_color must be #rrggbb');
+    need(s.site, 'site', ['hosts', 'entry_url']);
+    if (!Array.isArray(s.site?.hosts) || !s.site.hosts.length) err.push('site.hosts needs at least one host');
+    need(s.meeting, 'meeting', ['title', 'opening_line', 'closing_line']);
+    const pages = new Set(['any', ...(s.site?.pages || []).map((p) => p.id)]);
+    (s.site?.pages || []).forEach((p, i) => { try { new RegExp(p.match); } catch { err.push(`site.pages[${i}].match is not a valid regex`); } });
+    const allowed = s.site?.allowed_urls ? new Set(s.site.allowed_urls) : null;
+    const catalog = s.site?.products ? new Set(s.site.products.map((p) => p.url)) : null;
+    if (!Array.isArray(s.scenes) || !s.scenes.length) err.push('scenes needs at least one scene');
+    if ((s.scenes || []).length > 15) err.push('scenes: at most 15 (number keys cover 1–9)');
+    const ids = new Set();
+    (s.scenes || []).forEach((sc, i) => {
+      const p = `scenes[${i}]`;
+      need(sc, p, ['id', 'label', 'page', 'pattern', 'visitor', 'talk_line', 'real_impl_note'].concat(sc.pattern === 'custom' ? [] : ['copy']));
+      if (sc.id && ids.has(sc.id)) err.push(`${p}.id duplicate: ${sc.id}`); ids.add(sc.id);
+      if (sc.pattern && !PATTERNS.includes(sc.pattern)) err.push(`${p}.pattern must be one of: ${PATTERNS.join(', ')}`);
+      if (sc.page && !pages.has(sc.page)) err.push(`${p}.page "${sc.page}" is not in site.pages (allowed: ${[...pages].join(', ')})`);
+      if (sc.copy && !sc.copy.title && !['inline_edit', 'custom', 'free_shipping_bar'].includes(sc.pattern)) err.push(`${p}.copy.title missing`);
+      if (sc.pattern === 'free_shipping_bar' && !sc.copy?.title) err.push(`${p} free_shipping_bar needs copy.title (use {{remaining}})`);
+      if (sc.cta_url) {
+        if (!/^https?:\/\//.test(sc.cta_url)) err.push(`${p}.cta_url must be an absolute URL`);
+        else if (allowed && !allowed.has(sc.cta_url)) err.push(`${p}.cta_url is not in site.allowed_urls (site scan): ${sc.cta_url}`);
+        else if (!allowed) { try { const h = new URL(sc.cta_url).hostname; if (!(s.site?.hosts || []).some((x) => h === x || h.endsWith('.' + x))) warn.push(`${p}.cta_url is outside the customer domain: ${sc.cta_url}`); } catch { err.push(`${p}.cta_url malformed`); } }
+      } else if (!sc.cta_scene && sc.copy?.cta && !['lead_form', 'survey', 'spin_to_win'].includes(sc.pattern)) warn.push(`${p} has copy.cta but no cta_url`);
+      if (sc.pattern === 'reco_card') {
+        if (!sc.products?.length) err.push(`${p} reco_card needs products[]`);
+        (sc.products || []).forEach((pr, j) => { need(pr, `${p}.products[${j}]`, ['name', 'price', 'url']); if (catalog && !catalog.has(pr.url)) err.push(`${p}.products[${j}].url is not in site.products (site scan)`); });
+      }
+      if (sc.pattern === 'social_proof' && !sc.stats?.length) err.push(`${p} social_proof needs stats[]`);
+      if (sc.pattern === 'inline_edit' && !sc.targets?.length) err.push(`${p} inline_edit needs targets[]`);
+      if (sc.pattern === 'custom' && !sc.customHtml) err.push(`${p} custom needs customHtml`);
+      if (sc.pattern === 'tier_progress' && !(sc.tier && sc.tier.next_at)) err.push(`${p} tier_progress needs tier{now,next,rate,ytd,next_at}`);
+      if (sc.pattern === 'free_shipping_bar' && !sc.threshold) err.push(`${p} free_shipping_bar needs threshold`);
+      if (sc.pattern === 'survey' && !sc.options?.length) err.push(`${p} survey needs options[]`);
+      if (sc.pattern === 'coupon' && !sc.code) warn.push(`${p} coupon has no code (default WELCOME10)`);
+      if (sc.customHtml && /<script|onerror=|onload=|javascript:/i.test(sc.customHtml)) err.push(`${p}.customHtml must not contain script or event handlers`);
+      const blob = JSON.stringify([sc.copy, sc.card, sc.stats, sc.note, sc.rows, sc.targets]);
+      const known = new Set(['tier_now', 'tier_next', 'tier_gain', 'tier_ytd', 'tier_next_at', 'tier_rate', 'order_total', 'remaining', 'threshold', 'current_total', ...Object.keys(s.vars || {}), ...Object.keys(s.site?.readers || {})]);
+      for (const m of blob.matchAll(/\{\{(\w+)\}\}/g)) { if (!known.has(m[1])) warn.push(`${p} uses {{${m[1]}}} which is in neither vars nor site.readers — it would show literally`); }
+      for (const k of Object.keys(s.site?.readers || {})) { if (blob.includes('{{' + k + '}}') && (s.vars || {})[k] === undefined) warn.push(`${p} {{${k}}} has a reader but no vars fallback — shows literally if the element is not found`); }
+      if (/\d+(\.\d+)?\s*(%|％|배|x|X)\b/.test(blob)) warn.push(`${p} copy contains something that looks like a performance number (digits + %/x). Confirm it is verified site information`);
+    });
+    if (!allowed) warn.push('site.allowed_urls missing — spec written without a site scan. Verify every cta_url exists yourself');
+    return { err, warn };
+  }
+
+  function bookmarklet(s) {
+    const js = shellSrc.replace('__SPEC__', () => JSON.stringify(s));   // function form: '$&' etc. in the spec must not be treated as replacement patterns
+    return { js, href: 'javascript:' + encodeURIComponent(js) };
+  }
+
+  function render(s) {
+    document.documentElement.style.setProperty('--brand', s.customer.brand_color);
+    $('#hdr-brand').textContent = `${s.customer.name} × DEMO KIT · DEMO KIT`;
+    $('#k-sub').textContent = s.meeting.subtitle || '';
+    $('#k-title').innerHTML = rich(s.meeting.title);
+    $('#k-lead').textContent = `One bookmark, ${s.scenes.length} scenes. No visitor options or input — just clicks.`;
+    const bm = bookmarklet(s); code = bm.js;
+    $('#bm').href = bm.href; $('#bm').textContent = `${s.customer.name} · Demo`;
+    $('#code').value = bm.href; $('#bm-size').textContent = `${(bm.href.length / 1024).toFixed(1)} KB`;
+    $('#k-entry').href = s.site.entry_url;
+    const pageUrl = (id) => (s.site.pages || []).find((p) => p.id === id)?.url;
+    $('#k-order').innerHTML = s.scenes.map((sc) => {
+      const u = pageUrl(sc.page);
+      return `<tr><td>${u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(sc.page)} ↗</a>` : esc(sc.page)}</td><td><b>${esc(sc.label)}</b><br><span class="pill">${esc(sc.pattern)}</span></td><td>${esc(sc.visitor)}</td><td>${rich(sc.copy?.title || '')}</td><td>${sc.cta_url ? `<a href="${esc(sc.cta_url)}" target="_blank" rel="noopener">${esc(sc.copy?.cta || sc.cta_url)}</a>` : '—'}</td></tr>`;
+    }).join('');
+    $('#k-open').textContent = 'Opening: “' + s.meeting.opening_line + '”';
+    $('#k-lines').innerHTML = s.scenes.map((sc) => `<li><b>${esc(sc.label)}</b> “${esc(sc.talk_line)}”</li>`).join('');
+    $('#k-close').textContent = 'Closing: “' + s.meeting.closing_line + '”';
+    $('#k-objections').innerHTML = (s.meeting.objections || []).length ? `<details><summary>Likely questions</summary><table>${s.meeting.objections.map((o) => `<tr><td><b>Q.</b> ${esc(o.q)}</td><td>${esc(o.a)}</td></tr>`).join('')}</table></details>` : '';
+    $('#k-impl').innerHTML = s.scenes.map((sc) => `<tr><td>${esc(sc.label)}</td><td>${esc(sc.real_impl_note)}</td><td>${sc.usecase_ref ? (sc.usecase_ref.url ? `<a href="${esc(sc.usecase_ref.url)}" target="_blank" rel="noopener">${esc(sc.usecase_ref.title || sc.usecase_ref.url)}</a>` : esc(sc.usecase_ref.title || '')) + (sc.usecase_ref.reframe_note ? `<br><small>${esc(sc.usecase_ref.reframe_note)}</small>` : '') : '—'}</td></tr>`).join('');
+    $('#k-prep').innerHTML = (s.meeting.prep_checklist || []).map((x) => `<li>${esc(x)}</li>`).join('') || '<li>Run the bookmark once on the real site in your own Chrome before the meeting</li>';
+    $('#page-sel').innerHTML = ['any', ...(s.site.pages || []).map((p) => p.id)].map((id) => `<option>${esc(id)}</option>`).join('');
+    $('#kit').hidden = false;
+  }
+
+  function showMsgs(v) {
+    const m = $('#msgs');
+    m.innerHTML = v.err.map((e) => `<div class="err">✕ ${esc(e)}</div>`).join('') + v.warn.map((w) => `<div class="warn">△ ${esc(w)}</div>`).join('') + (v.err.length ? '' : '<div class="ok">✓ Spec validated</div>');
+    $('#copy-msgs').hidden = !(v.err.length || v.warn.length);
+    $('#copy-msgs').onclick = async () => {
+      const text = [`Please fix the spec JSON according to these validation messages (${v.err.length} errors, ${v.warn.length} warnings) and output the complete JSON again. Explain each change in one line.`, ...v.err.map((e) => 'Error: ' + e), ...v.warn.map((w) => 'Warning: ' + w)].join('\n');
+      const box = $('#msgs-copy'); box.hidden = false; box.value = text;   // show exactly what was copied
+      try { await navigator.clipboard.writeText(text); $('#status').textContent = `Copied (${text.split('\n').length} lines). Paste into your model chat.`; }
+      catch { box.focus(); box.select(); let ok = false; try { ok = document.execCommand('copy'); } catch { ok = false; } $('#status').textContent = ok ? 'Copied.' : 'Select the box below and press ⌘C / Ctrl+C.'; }
+    };
+  }
+
+  function repair(t) {
+    let x = String(t).trim();
+    x = x.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');            // code fences
+    const a = x.indexOf('{'), b = x.lastIndexOf('}'); if (a > 0 || b < x.length - 1) x = x.slice(a, b + 1);   // prose around the object
+    x = x.replace(/[\u201c\u201d]/g, '"').replace(/[\u2018\u2019]/g, "'");   // smart quotes
+    x = x.replace(/,\s*([}\]])/g, '$1');                                        // trailing commas
+    return x;
+  }
+  function kindOf(o) {
+    if (o && typeof o === 'object' && (o.scan || o.recon) && Array.isArray(o.pages) && !o.scenes) return 'recon';
+    if (o && typeof o === 'object' && Array.isArray(o.scenes)) return 'spec';
+    return 'unknown';
+  }
+  function reconSummary(r) {
+    const pages = (r.pages || []).map((p) => `${p.page_type} (${p.products.length} products, ${p.nav.length} links${p.csp?.demo_shell && p.csp.demo_shell !== 'ok' ? ', ⚠ csp' : ''})`).join(' · ');
+    return `${r.host} · ${r.render} · ${r.lang || '?'} · brand ${r.brand_color_suggested || (r.brand_colors || [])[0] || '?'} · pages: ${pages || 'none'} · allowed_urls ${(r.allowed_urls || []).length}`;
+  }
+  let recon = null;
+  const setStep = (n) => ['#st1', '#st2', '#st3'].forEach((id, i) => { const el = $(id); el.className = 'step' + (i + 1 < n ? ' done' : i + 1 === n ? ' on' : ''); });
+  function showRecon(r) {
+    recon = r;
+    try { sessionStorage.setItem('__kit_recon', JSON.stringify(r)); } catch { /* ignore */ }
+    $('#recon-sum').innerHTML = '<div class="ok">✓ ' + esc(reconSummary(r)) + '</div>';
+    const g = $('#gem-req'); g.hidden = false;
+    const pageTypes = (r.pages || []).map((p) => p.page_type);
+    const KO = { home: 'home', pdp: 'product page', plp: 'category', cart: 'cart', checkout: 'checkout', account: 'account', content: 'content', other: 'other' };
+    const IND_KO = { 'Fashion & Apparel': '패션·의류 이커머스', 'Beauty & Cosmetics': '뷰티·화장품', 'Electronics': '전자·가전', 'Grocery & Food Delivery': '식품·마트·배달', 'Marketplace / General Retail': '종합몰·마켓플레이스', 'Travel & Hospitality': '여행·항공·숙박', 'Banking & Insurance': '금융·보험', 'Telecom': '통신', 'Automotive & Mobility': '자동차·모빌리티', 'Media & Subscriptions': '미디어·콘텐츠·구독', 'Education': '교육', 'Healthcare': '헬스케어·의료', 'Nonprofit & Donations': '비영리·후원', 'Gaming, Entertainment & Ticketing': '게임·엔터·티켓' };
+    const indLabel = (n) => LANG === 'en' ? n : (IND_KO[n] || n);
+    const DEF = {   // industry -> [pain points, visitors]
+      'Fashion & Apparel': ['returning-visitor personalization, cart abandonment recovery, member retention', 'returning guest / member with a cart / VIP member'],
+      'Beauty & Cosmetics': ['repeat purchase, cart abandonment, new-member conversion', 'returning guest / member due for replenishment / visitor with a cart'],
+      'Electronics': ['high-consideration conversion, comparison drop-off recovery, accessory cross-sell', 'visitor comparing products / member with a cart / post-purchase customer'],
+      'Grocery & Food Delivery': ['reorder nudges, basket size, free-delivery threshold', 'returning member / member with a cart / lapsed customer'],
+      'Marketplace / General Retail': ['returning-visitor personalization, cart abandonment, category browse conversion', 'returning guest / member with a cart / browse abandoner'],
+      'Travel & Hospitality': ['search-to-booking drop-off recovery, ancillaries, loyalty tiers', 'searched but not booked / member mid-booking / top-tier member'],
+      'Banking & Insurance': ['lead capture, application completion, cross-sell to existing customers', 'guest viewing a product / applicant who did not finish / logged-in member'],
+      'Telecom': ['plan upgrades, add-on sales, churn defense', 'visitor comparing plans / logged-in subscriber / contract ending soon'],
+      'Automotive & Mobility': ['model discovery, consultation and test-drive leads, owner care', 'visitor who viewed a model / consultation requester / existing owner'],
+      'Media & Subscriptions': ['subscription conversion, churn prevention, content personalization', 'non-subscriber / subscription expiring soon / returning reader'],
+      'Education': ['enrollment conversion, learning continuity, re-enrollment', 'course browser / active learner / lapsed learner'],
+      'Healthcare': ['appointment conversion, return visits, guidance', 'reader of care information / unfinished booking / existing patient'],
+      'Nonprofit & Donations': ['interest-based content, unfinished donation recovery, donor relationship', 'returning visitor who read a campaign / unfinished donor / existing monthly donor'],
+      'Gaming, Entertainment & Ticketing': ['ticket and purchase conversion, return visits, member benefits', 'event viewer / unfinished booking / member'],
+    };
+    const d = DEF[r.industry_guess] || ['returning-visitor personalization, conversion drop-off recovery, member retention', 'returning guest / unfinished conversion / logged-in member'];
+    const fill = (id, v) => { const el = $(id); if (!el.value.trim() || el.dataset.auto === '1') { el.value = v; el.dataset.auto = '1'; } };
+    fill('#b-customer', r.site_name || r.host.replace(/^www\./, ''));
+    fill('#b-industry', r.industry_guess ? `${indLabel(r.industry_guess)}${(r.industry_candidates || []).length > 1 ? (LANG === 'en' ? ' (alternatives: ' : ' (후보: ') + r.industry_candidates.slice(1).map((x) => indLabel(x.replace(/ \(\d+\)/, ''))).join(', ') + ')' : ''}` : '');
+    fill('#b-purpose', '3-minute demo in the first meeting');
+    fill('#b-pain', d[0]);
+    fill('#b-visitors', d[1]);
+    const pg = [...new Set(pageTypes)].filter((t) => t !== 'other').map((t) => KO[t] || t);
+    fill('#b-pages', pg.length > 1 ? pg.join(' + ') + ' (scanned pages)' : 'home only');
+    fill('#b-notes', [r.tags?.some((t) => /braze|exponea|moengage|clevertap|salesforce/.test(t)) ? 'competitor tags detected (' + r.tags.filter((t) => /braze|exponea|moengage|clevertap|salesforce/.test(t)).join(', ') + ') — never mention in copy' : '', r.render === 'spa' ? 'SPA — single-page demo recommended' : ''].filter(Boolean).join('; '));
+    document.querySelectorAll('#gem-req input').forEach((el) => el.addEventListener('input', () => { el.dataset.auto = '0'; }));
+    $('#recon-status').textContent = '';
+    setStep(1);
+    $('#gem-req-copy').onclick = async () => {
+      const f = (id) => $(id).value.trim();
+      const text = [`Customer: ${f('#b-customer')}, industry: ${f('#b-industry')}, site language: ${r.lang || 'en'}`,
+        `Purpose: ${f('#b-purpose')}`, `What the customer cares about: ${f('#b-pain')}`, `Visitors to show: ${f('#b-visitors')}`,
+        `Pages: ${f('#b-pages')}`, f('#b-notes') ? `Notes: ${f('#b-notes')}` : '', '--- site scan JSON ---', JSON.stringify(r)].filter(Boolean).join('\n');
+      const box = $('#req-copy'); box.hidden = false; box.value = text;
+      try { await navigator.clipboard.writeText(text); $('#req-status').textContent = `Copied (${(text.length / 1024).toFixed(0)} KB). Paste into your model, then put the returned spec into step 2.`; }
+      catch { box.focus(); box.select(); $('#req-status').textContent = 'Select the box below and press ⌘C / Ctrl+C.'; }
+      setStep(2); $('#spec').focus();
+    };
+  }
+  function readRecon(text) {
+    let r;
+    try { r = JSON.parse(repair(text)); } catch (e) { $('#recon-sum').innerHTML = '<div class="err">✕ JSON parse failed: ' + esc(e.message) + '</div>'; return false; }
+    const kind = kindOf(r);
+    if (kind === 'spec') { $('#spec').value = text; $('#recon').value = ''; $('#recon-sum').innerHTML = '<div class="warn">△ This is a spec JSON, so it was moved to step 2.</div>'; return build(text); }
+    if (kind !== 'recon') { $('#recon-sum').innerHTML = '<div class="err">✕ Not a site scan JSON. Paste the output of "Copy JSON" from the scan panel.</div>'; return false; }
+    showRecon(r); return true;
+  }
+  function groundWithRecon(s) {
+    if (!recon) return [];
+    const notes = [];
+    if (!s.site) s.site = {};
+    if (recon.allowed_urls?.length) { s.site.allowed_urls = recon.allowed_urls; notes.push('site.allowed_urls replaced with the step-1 scan (the spec’s own list is not evidence)'); }
+    const prods = (recon.pages || []).flatMap((p) => p.products || []).filter((x) => x.url && x.price != null);
+    if (!s.site.products?.length && prods.length) { s.site.products = prods; notes.push(`site.products filled from the step-1 scan (${prods.length})`); }
+    if (!s.site.hosts?.length && recon.hosts?.length) { s.site.hosts = recon.hosts; notes.push('site.hosts filled from the scan'); }
+    return notes;
+  }
+  function build(fromText) {
+    $('#kit').hidden = true; $('#save').hidden = true; spec = null; code = '';
+    let s;
+    try { s = JSON.parse(repair(fromText)); } catch (e) { showMsgs({ err: ['JSON parse failed: ' + e.message + ' — ask your model for "valid JSON only, no code block"'], warn: [] }); $('#kit').hidden = true; return false; }
+    const kind = kindOf(s);
+    if (kind === 'recon') { $('#recon').value = fromText; $('#spec').value = ''; showMsgs({ err: [], warn: ['This is a site scan JSON, so it was moved to step 1. Check the brief and create your model request.'] }); $('#kit').hidden = true; showRecon(s); return false; }
+    if (kind === 'unknown') { showMsgs({ err: ['Not a spec JSON (no scenes array). Paste the complete JSON from your model.'], warn: [] }); $('#kit').hidden = true; return false; }
+    try { recon = $('#recon').value.trim() ? JSON.parse(repair($('#recon').value)) : recon; }
+    catch { showMsgs({ err: [say('1단계 스캔을 읽을 수 없습니다 — 사이트 스캔을 다시 붙여넣으세요.', 'Invalid scan in step 1 — paste a fresh site scan.')], warn: [] }); return false; }
+    let v;
+    try {
+      const src = validateSource(s, recon);
+      if (src.err.length) { showMsgs(src); setStep(2); return false; }
+      const notes = groundWithRecon(s);
+      v = validate(s); v.warn = [...src.warn, ...notes.map((n) => 'ℹ ' + n), ...v.warn];
+    } catch {
+      showMsgs({ err: [say('스캔 또는 스펙 구조가 잘못됐습니다 — Gem에 스키마에 맞는 전체 JSON을 요청하세요.', 'Invalid scan or spec structure — ask your model for complete JSON matching the schema.')], warn: [] }); return false;
+    }
+    showMsgs(v);
+    if (v.err.length) { setStep(2); return false; }
+    spec = s; render(s); $('#save').hidden = false; $('#status').textContent = '';
+    setStep(3); $('#step1').classList.add('collapsed');
+    return true;
+  }
+
+  $('#build').onclick = () => build($('#spec').value);
+  $('#read-recon').onclick = () => readRecon($('#recon').value);
+  $('#recon').addEventListener('paste', () => setTimeout(() => readRecon($('#recon').value), 50));   // paste = read, no extra click
+  $('#step1').addEventListener('click', (e) => { if ($('#step1').classList.contains('collapsed') && !e.target.closest('button,input,textarea')) { $('#step1').classList.remove('collapsed'); } });
+  try {
+    const standalone = $('#embedded-spec').textContent.trim() !== '__SPEC__';
+    const saved = standalone ? $('#embedded-scan').textContent : sessionStorage.getItem('__kit_recon');
+    const parsed = saved && JSON.parse(saved);
+    if (parsed) { $('#recon').value = saved; showRecon(parsed); }
+  } catch { /* a corrupt stored scan is simply not used */ }
+  $('#copy-console').onclick = async () => { try { await navigator.clipboard.writeText(code); $('#status').textContent = 'Console code copied. Paste it into the DevTools console on the customer site.'; } catch { $('#code').closest('details').open = true; $('#code').value = code; $('#code').select(); } };
+  $('#copy-code').onclick = async () => { try { await navigator.clipboard.writeText($('#code').value); $('#status').textContent = 'Copied. Paste into the bookmark URL field.'; } catch { $('#code').closest('details').open = true; $('#code').select(); } };
+  $('#save').onclick = () => {
+    if (!spec) return;
+    const html = pristine.replace(/<script id="embedded-(spec|scan)" type="application\/json">[\s\S]*?<\/script>/g,
+      (_, kind) => '<script id="embedded-' + kind + '" type="application/json">' + JSON.stringify(kind === 'spec' ? spec : recon).replace(/</g, '\\u003c') + '<' + '/script>');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    a.download = `${spec.customer.name}_DEMO_KIT.html`.replace(/[\\/:*?"<>|\s]+/g, '_'); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
+  $('#rehearse').onclick = () => { document.body.dataset.demoPage = $('#page-sel').value; (0, eval)(code); };
+  $('#hdr-ver').textContent = (shellSrc.match(/VER = '([^']+)'/) || [])[1] || '';
+
+  const embedded = $('#embedded-spec').textContent.trim();
+  if (embedded && embedded !== '__SPEC__') {
+    $('#spec').value = embedded;
+    if (build(embedded)) { $('#step1').hidden = true; $('.steps').hidden = true; $('#step2').classList.add('muted'); $('#step2').querySelector('h2').textContent = 'Spec (edit and build to update)'; }
+  }
+})();
+</script>
+</html>

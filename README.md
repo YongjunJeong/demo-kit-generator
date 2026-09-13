@@ -1,92 +1,92 @@
 # Demo Kit Generator
 
-**Turn a website scan and a model-written scene spec into a rehearsal-ready browser demo.**
+고객 웹사이트 위에서 개인화 데모를 보여주기 위한 북마클릿 생성 도구입니다. 페이지를 스캔하고 LLM에 시나리오를 요청한 뒤, 결과를 빌더에 붙여넣으면 발표용 킷이 나옵니다. 킷에는 북마클릿과 함께 장면 순서, 발표 멘트, 실제 구현에 필요한 조건이 들어갑니다.
 
-A portfolio project about making customer demos repeatable: collect page evidence, ask an LLM to propose scenes, validate the output, and render it using a reusable JavaScript shell. No application backend or model API key is required.
+## 만든 배경
 
-The public edition contains a fictional outdoor store, Northstar. It does not include employer knowledge bases, customer briefs, real-brand demo kits, or private model configuration.
+솔루션 컨설팅 미팅에서는 고객 사이트에 직접 변화를 보여주는 데모가 유용합니다. 다만 고객마다 스크립트를 새로 작성하고 수정하는 데 시간이 듭니다. LLM에 코드를 맡겨도 사이트에 없는 상품이나 잘못된 가격이 들어가면 발표 전에 다시 고쳐야 합니다.
 
-## Try it in two minutes
+그래서 LLM은 장면을 설명하는 JSON만 작성하고, 화면은 미리 만든 JavaScript 코드가 그리도록 했습니다. 빌더는 JSON에 적힌 상품, 가격, URL, 셀렉터를 원본 스캔과 비교합니다. 스캔이 없거나 값이 맞지 않으면 킷을 만들지 않습니다.
 
-Requires Python 3.10+ to build and serve locally. The browser tools themselves have no package dependencies.
+이 저장소에는 가상의 아웃도어 쇼핑몰 **Northstar**를 예제로 넣었습니다. 회사 내부 자료와 실제 고객의 요구사항, 고객별 데모 파일은 제외했습니다. 별도 백엔드나 모델 API 키는 필요하지 않습니다.
+
+## 예제 실행
+
+저장소를 내려받고 프로젝트 폴더에서 실행합니다. Python 3.10 이상이 필요합니다.
 
 ```sh
 python3 build.py
 python3 -m http.server 8080 --bind 127.0.0.1
 ```
 
-Open [the fictional storefront](http://127.0.0.1:8080/dist/PLAYGROUND.html), click **Launch the 3-scene demo**, and switch between return visit, on-page change and owner guidance. **Reset** restores recorded edits; **Exit** removes the demo.
+[예제 쇼핑몰](http://127.0.0.1:8080/dist/PLAYGROUND.html)을 열고 **Launch the 3-scene demo**를 누르면 화면 아래에 발표 패널이 나타납니다.
 
-Open [the example kit](http://127.0.0.1:8080/dist/NORTHSTAR_DEMO_KIT.html) to inspect its scene order, talk track and implementation notes. No AI account is needed for this example.
+1. **Return visit** — 재방문자를 위한 안내를 띄웁니다.
+2. **On-page change** — 쇼핑몰 본문의 제목을 바꿉니다.
+3. **After purchase** — 구매한 고객에게 상품 관리 안내를 보여줍니다.
 
-## Why this exists
+**Reset**은 기록해 둔 화면 변경을 되돌리고, **Exit**은 데모를 종료합니다. [예제 킷](http://127.0.0.1:8080/dist/NORTHSTAR_DEMO_KIT.html)에서는 장면별 멘트와 구현 조건도 볼 수 있습니다. 이 예제를 실행하는 데 AI 계정은 필요하지 않습니다. 도구 화면은 영어입니다.
 
-A convincing demo often needs to look like the customer's site, yet writing one-off scripts makes preparation slow and fragile. Asking an LLM for arbitrary JavaScript moves that fragility elsewhere.
+## 다른 사이트의 데모 만들기
 
-This project separates the work:
+1. `dist/SITE_SCAN_KIT.html`을 열고 스캔 북마클릿을 Chrome 북마크 바에 등록합니다.
+2. 데모에 사용할 공개 페이지에서 스캔합니다. 복사한 JSON에 개인정보나 민감한 URL이 들어 있지 않은지 확인합니다.
+3. `dist/KIT_BUILDER.html`의 1단계에 스캔 결과를 붙여넣고 고객 정보와 미팅 목적을 적습니다.
+4. 사용할 LLM에 다음 파일과 스캔 결과를 전달합니다.
+   - [시나리오 작성 지침](prompts/SCENE_DESIGNER.md)
+   - [JSON 형식](spec_schema.json)
+   - [예제 시나리오](examples/northstar.spec.json)
+5. LLM이 작성한 JSON을 빌더의 2단계에 붙여넣습니다. 오류가 나오면 해당 내용을 LLM에 전달해 수정합니다.
+6. 킷을 저장하고 실제 발표할 사이트에서 리허설합니다.
 
-```mermaid
-flowchart LR
-  A[Page scan] --> B[Human review]
-  B --> C[LLM scene spec]
-  B --> D[Evidence validation]
-  C --> D
-  D --> E[Preset renderer]
-  E --> F[Rehearsal and bookmarklet]
+빌더에 Gemini 링크가 있지만 다른 모델을 써도 됩니다. LLM이 작성한 코드를 직접 실행하는 방식은 아닙니다.
+
+예제의 `northstar.scan.json`은 로컬 쇼핑몰을 위해 직접 작성한 데이터입니다. 실제 고객 사이트에서 수집한 스캔은 아닙니다. 예제 URL은 `127.0.0.1:8080`을 기준으로 하므로 포트를 바꾸려면 예제 스캔과 시나리오의 URL도 함께 수정하고 다시 빌드해야 합니다.
+
+## 파일 구성
+
+| 파일 또는 폴더 | 역할 |
+|---|---|
+| `shell/shell.js` | 15개 화면 패턴과 장면 전환, 초기화, 종료 처리 |
+| `scan/scan.js` | 페이지의 DOM과 메타데이터 읽기 |
+| `builder_template.html` | 스캔 대조, 시나리오 검증, 킷 생성 |
+| `scan_template.html` | 스캔 북마클릿 설치 페이지 |
+| `spec_schema.json` | 시나리오 JSON 형식 |
+| `examples/` | Northstar 쇼핑몰과 예제 데이터 |
+| `prompts/SCENE_DESIGNER.md` | LLM에 전달할 작성 지침 |
+| `tests/` | 소스 검사와 로컬 브라우저 테스트 |
+| `docs/ARCHITECTURE.md` | 구현 방식과 제약 |
+| `docs/PUBLICATION.md` | 코드 출처와 공개 전 확인 사항 |
+| `dist/` | 빌드한 HTML 도구와 예제 킷 |
+
+수정할 때는 원본 파일을 고친 뒤 `python3 build.py`를 실행합니다. `dist/`의 HTML을 직접 고치면 다음 빌드에서 덮어써집니다. 이 버전은 영어 템플릿을 사용하며 내부용 번역 스크립트와 유스케이스 지식 파일은 포함하지 않습니다.
+
+## 테스트
+
+소스 문법, JSON 형식, 배포 파일을 검사합니다. 이 명령에는 Python 외에 Node.js가 필요합니다.
+
+```sh
+python3 tests/check_release.py
 ```
 
-- **Evidence over self-assertion:** product fields, URLs and selectors are compared with the original scan, not the model's own claimed sources.
-- **Data instead of generated programs:** the model writes JSON consumed by a fixed renderer.
-- **Field-ready output:** the kit carries scene order, talk lines, preparation notes and diagnostics.
-- **Small distribution:** standalone HTML tools, with Python's standard library for builds.
+로컬 서버를 실행한 상태에서 [브라우저 테스트](http://127.0.0.1:8080/tests/index.html)를 열고 **Run checks**를 누르면 빌더와 예제 쇼핑몰을 검사합니다. 외부 LLM이나 고객 사이트는 호출하지 않습니다.
 
-No time savings, conversion uplift or team adoption numbers are claimed; those have not been measured for this public edition.
+현재 검사는 스캔 대조, 장면 표시, 초기화와 종료 등 주요 동작을 확인합니다. 15개 패턴의 모든 조합이나 모든 모바일 환경, 사이트 보안 정책을 검증한 것은 아닙니다. `spec_schema.json`은 형식 참고용이며 빌더가 JSON Schema의 모든 규칙을 실행하지는 않습니다.
 
-## Make a new demo
+## 사용 전에 알아둘 점
 
-1. Open `dist/SITE_SCAN_KIT.html` and install the scan bookmarklet in Chrome.
-2. Scan public pages you are authorized to use. Review the copied JSON for identifiers and sensitive URLs.
-3. Open `dist/KIT_BUILDER.html`, paste the scan in step 1 and edit the brief.
-4. Give your chosen model `prompts/SCENE_DESIGNER.md`, `spec_schema.json`, the example spec and your reviewed scan. The optional Gemini link is a convenience, not a dependency.
-5. Paste its JSON into step 2. Fix validation errors before saving the kit.
-6. Rehearse on the intended page before presenting. A successful local test does not prove compatibility with another site's CSP or framework.
+**스캔 결과는 파일에 남습니다.** 스캐너는 페이지의 텍스트, 메타데이터, 링크, 상품 정보와 셀렉터를 읽습니다. 결과는 해당 사이트의 `sessionStorage`에 쌓이며 패널을 닫아도 지워지지 않습니다. 빌더도 스캔을 기억하고, 저장한 킷에는 스캔과 시나리오가 함께 들어갑니다. 다른 사람에게 킷을 전달하기 전에 내용을 확인하세요.
 
-The bundled `examples/northstar.scan.json` is deliberately **synthetic evidence for the local fixture**, not a captured customer scan. Its URLs assume localhost port 8080; changing the port requires updating the example scan and spec together and rebuilding.
+**LLM에 붙여넣는 데이터는 해당 서비스로 전달됩니다.** 이 도구가 모델 API를 직접 호출하지는 않습니다. 로그인한 계정 화면, 결제 정보, 사내 포털처럼 민감한 내용이 있는 페이지는 공개 데모용으로 스캔하지 마세요.
 
-## What is included
+**실제 주문이나 상담 신청을 접수하지 않습니다.** 다만 상품 이미지를 불러오거나 링크를 눌러 이동할 때는 네트워크 요청이 발생할 수 있습니다. 원래 사이트의 분석 도구나 다른 통신도 계속 작동합니다.
 
-| Location | Purpose |
-|---|---|
-| `shell/shell.js` | Shared renderer and cleanup; 15 inherited presentation patterns |
-| `scan/scan.js` | DOM and metadata scanner |
-| `builder_template.html` | Evidence validation, brief and kit builder; English default |
-| `scan_template.html` | Scanner installation page |
-| `spec_schema.json` | Scene format reference; runtime uses explicit checks, not a full JSON Schema engine |
-| `examples/` | Fictional store, source spec and synthetic evidence |
-| `prompts/SCENE_DESIGNER.md` | Model-independent scene design instructions |
-| `tests/` | Browser checks for evidence rejection and DOM restoration |
-| `docs/ARCHITECTURE.md` | Design choices, data handling and limitations |
-| `docs/PUBLICATION.md` | Provenance and remaining publication decisions |
-| `dist/` | Reproducible tools and runnable example |
+**스캔과 일치한다고 내용까지 정확한 것은 아닙니다.** 페이지 정보가 잘못됐거나 스캐너가 엉뚱한 요소를 읽을 수도 있습니다. 발표 전에 상품과 문구를 직접 확인해야 합니다.
 
-Edit sources, then run `python3 build.py`. Do not edit generated HTML. This edition uses English templates directly; it does not carry the internal localization generation pipeline or vendor-specific knowledge files.
+**Reset으로 사이트의 모든 상태를 되돌릴 수는 없습니다.** 기록한 요소와 텍스트는 복원하지만 사이트 자체의 상태 변경이나 동시에 일어난 화면 갱신까지 취소하지는 못합니다. 복구 후 이상이 있으면 페이지를 새로고침하세요.
 
-## Checks
+HTML은 기본 서식 태그만 허용합니다. 그래도 검토하지 않은 시나리오를 안전하게 실행해 주는 격리 환경은 아닙니다. 사이트나 회사 정책에서 북마클릿 실행을 막는다면 보안 설정을 바꾸지 말고 로컬 예제로 시연하세요.
 
-The static checks additionally require Node.js on PATH. Run `python3 tests/check_release.py` for syntax/data and public-file checks. With the local server running, open [browser checks](http://127.0.0.1:8080/tests/index.html) and click **Run checks**. They exercise the local builder and fictional storefront, without calling an LLM or customer site.
+## 공개 및 라이선스
 
-The browser suite is deliberately focused. It does not certify all 15 patterns, every site framework, mobile behavior or every CSP configuration.
-
-## Data and execution boundaries
-
-- The scanner reads loaded page text, metadata, links, selectors and product information. It stores accumulated scans in the page origin's `sessionStorage`. Closing the panel does not clear the scan.
-- The builder also remembers the scan in `sessionStorage`; saved kits embed the scan and spec. Treat exported kits as containing the source information you supplied.
-- Pasting a scan into an external AI service sends it to that provider under your account's settings. The tool itself has no model API integration.
-- The renderer has no order/lead submission backend. Product images may load over the network; links can navigate; the underlying site may continue analytics and other requests.
-- Scans are evidence for consistency, not authenticated truth. Review misleading page content and model output yourself. Do not scan logged-in accounts, checkout details, private portals or sensitive pages for a public demo.
-- Reset preserves recorded node identities and text, but cannot rewind application state or concurrent site changes. Reload the page if its own framework behaves unexpectedly.
-- Rich HTML is restricted to formatting tags. This is not a sandbox for untrusted programs. Only use reviewed specs; no general security certification is claimed.
-
-## Project status and licensing
-
-Prepared as a public portfolio candidate. No open-source license has been selected, and no employer ownership or publication approval is implied. See `docs/PUBLICATION.md` before making the repository public. No trademark owner endorses this project.
+현재 비공개 저장소에 올린 상태이며 오픈소스 라이선스는 아직 정하지 않았습니다. 공개 전 코드의 소유권과 업무상 작성한 코드의 배포 가능 범위를 확인해야 합니다. 자세한 내용은 [공개 안내](docs/PUBLICATION.md)에 적었습니다. 특정 회사나 브랜드의 공식 프로젝트가 아닙니다.

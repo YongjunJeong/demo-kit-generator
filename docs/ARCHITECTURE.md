@@ -1,32 +1,35 @@
-# Design notes
+# 구현 메모
 
-## The contract
+## 스캔에서 북마클릿까지
 
-The scanner supplies page evidence. A human reviews it before sharing with a model. The model proposes a scene specification. The builder checks a practical subset of its structure plus evidence consistency and encodes the shared shell with the spec into a bookmarklet. A standalone kit embeds both scan and spec so later edits use the same evidence.
+스캐너는 현재 페이지에서 텍스트와 상품 정보, URL, 셀렉터 후보를 읽습니다. 이 결과를 검토한 뒤 LLM에 전달하면 모델이 장면별 JSON을 작성합니다.
 
-The schema documents the broad format; explicit runtime checks are intentionally stricter about active HTML and require a scan. No claim is made that every JSON Schema keyword is executed.
+빌더는 JSON의 형식과 내용을 스캔에 대조합니다. 원본 스캔이 없으면 킷을 만들지 않습니다. 검증을 통과한 JSON은 공통 렌더러와 함께 북마클릿에 들어갑니다. 저장한 HTML 킷에는 스캔과 시나리오가 함께 들어 있어 나중에 수정할 때도 같은 자료를 사용할 수 있습니다.
 
-## Public-edition changes
+`spec_schema.json`은 형식을 설명하는 파일입니다. 빌더는 별도의 검증 코드를 사용하며 JSON Schema의 모든 규칙을 실행하지는 않습니다. HTML은 기본 서식 태그만 허용하고 외부 리소스를 불러오는 HTML이나 CSS URL은 차단합니다.
 
-- English-first source templates, without the internal localization build or external knowledge-base lookup.
-- Vendor branding, customer examples, internal distribution scripts and copied use-case content excluded.
-- Original scan is mandatory for generation.
-- Rich HTML limited to formatting tags; resource-bearing HTML and CSS URL content rejected by the builder.
-- Reset restores references to original child nodes instead of recreating them from innerHTML; this preserves attached listeners in the covered regression case.
-- Hand-authored fictional fixture and focused local browser tests.
+## 화면 복원
 
-## Deliberate limits
+Reset은 원래 DOM 노드의 참조를 보관했다가 돌려놓습니다. `innerHTML`로 다시 만들면 기존 노드에 연결된 이벤트 리스너가 사라질 수 있기 때문입니다. 로컬 테스트에서 노드와 리스너가 유지되는지 확인합니다.
 
-Bookmarklets depend on site/browser policy. The tool must not ask users to disable browser security controls; use the local example when execution is blocked. Browser-hosted application frameworks can rerender edited nodes. The restoration routine cannot provide a transaction across a site's state store, network effects and concurrent DOM updates.
+다만 사이트가 자체적으로 화면을 다시 그리거나 상태를 갱신하면 복원이 어긋날 수 있습니다. 네트워크 요청이나 사이트 내부 상태까지 취소하지는 못합니다. 이런 경우에는 페이지를 새로고침해야 합니다.
 
-The renderer retains 15 existing patterns. The public example demonstrates three, not all possible combinations. Custom content is restricted compared with the internal tool. This edition does not automatically deploy campaigns, host customer data, train a recommender or build a CRM.
+## 예제와 지원 범위
 
-Some bilingual fallback strings remain inside inherited runtime logic, but the distributed tools select English. The optional Gemini link does not bind the workflow to Gemini, and no live model evaluation was run for this public edition.
+렌더러에는 15개 화면 패턴이 있습니다. Northstar 예제는 배너, 본문 수정, 팝업 세 장면을 사용합니다. 상품 데이터는 예제용으로 직접 작성했고 그림은 SVG로 넣었습니다.
 
-## Trust boundaries
+도구 화면은 영어로 표시합니다. 런타임에 일부 한국어 대체 문구가 남아 있지만 기본 설정은 영어입니다. 빌더의 Gemini 링크는 편의를 위한 링크이며 다른 LLM을 써도 됩니다. 이 도구가 모델 API나 마케팅 플랫폼에 직접 연결되지는 않습니다.
 
-A scanned selector can still point at a sensitive or unsuitable part of a page. A product copied faithfully from an untrusted page can still be wrong. Evidence validation reduces inconsistency; human review establishes whether the content is suitable. Exported files can contain every URL and field in their embedded scan. Review them before sharing.
+북마클릿 실행 여부는 사이트와 브라우저 정책에 따라 달라집니다. 실행이 막힌 곳에서는 보안 설정을 바꾸지 말고 로컬 예제를 사용합니다.
 
-## Verification record · 2026-09-13
+## 데이터 검증의 한계
 
-Static source/JSON/public-file checks passed. The local in-app browser passed 19 checks covering mandatory scan evidence, rejected URLs/selectors/active content, example generation, scene rendering, node identity and listener preservation, relaunch, teardown and scanner output. The storefront and first scene were visually inspected. No third-party site, live model, actual Chrome bookmark installation, or full security audit was tested.
+스캔과 일치하는 셀렉터라도 데모에 적합하지 않은 영역을 가리킬 수 있습니다. 페이지에 잘못된 가격이 적혀 있으면 스캔에도 그대로 들어옵니다. 빌더가 확인하는 것은 스캔과 시나리오의 일치 여부이므로 상품과 문구는 발표 전에 직접 확인해야 합니다.
+
+스캐너의 결과는 해당 사이트의 `sessionStorage`에 남습니다. 내보낸 킷에도 스캔의 URL과 필드가 포함되므로 공유 전에 내용을 확인해야 합니다. HTML 서식 제한과 검증 코드는 검토하지 않은 입력을 안전하게 실행해 주는 격리 환경을 대신하지 않습니다.
+
+## 확인한 범위
+
+2026-09-13에 소스 문법, JSON, 배포 파일 검사를 통과했습니다. 로컬 브라우저에서는 스캔 필수 여부, 잘못된 URL과 셀렉터, 실행 가능한 HTML 차단, 예제 생성, 장면 표시, 노드와 리스너 복원, 재실행, 종료, 스캔 결과 등 19개 항목을 확인했습니다. 예제 쇼핑몰과 첫 장면은 화면으로도 확인했습니다.
+
+실제 고객 사이트, LLM 응답, Chrome 북마크 등록 과정은 이 검사에 포함하지 않았습니다. 15개 패턴의 모든 조합이나 모바일 환경 전체를 검증한 것도 아닙니다. 테스트 실행 방법은 [README](../README.md#테스트)에 있습니다.

@@ -56,7 +56,7 @@ python3 -m http.server 8080 --bind 127.0.0.1
 | `prompts/SCENE_DESIGNER.md` | LLM에 전달할 작성 지침 |
 | `tests/` | 소스 검사와 로컬 브라우저 테스트 |
 | `docs/ARCHITECTURE.md` | 구현 방식과 제약 |
-| `docs/PUBLICATION.md` | 코드 출처와 공개 전 확인 사항 |
+| `docs/PUBLICATION.md` | 코드 출처와 예제 구성 |
 | `dist/` | 빌드한 HTML 도구와 예제 킷 |
 
 수정할 때는 원본 파일을 고친 뒤 `python3 build.py`를 실행합니다. `dist/`의 HTML을 직접 고치면 다음 빌드에서 덮어써집니다. 이 버전은 영어 템플릿을 사용하며 내부용 번역 스크립트와 유스케이스 지식 파일은 포함하지 않습니다.
